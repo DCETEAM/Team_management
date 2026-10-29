@@ -146,6 +146,8 @@ def login_controller():
             "user_id": user.id,
             "role_id": user.role_id,
             "status": 1,
+            "profile_onboarding_completed": bool(user.profile_onboarding_completed),
+            "profile_onboarding_skipped": bool(getattr(user, "profile_onboarding_skipped", False)),
         }), 200
 
     except Exception as e:
@@ -206,6 +208,8 @@ def google_login_controller():
             "user_id": user.id,
             "role_id": user.role_id,
             "status": 1,
+            "profile_onboarding_completed": bool(user.profile_onboarding_completed),
+            "profile_onboarding_skipped": bool(getattr(user, "profile_onboarding_skipped", False)),
         }), 200
 
     except Exception as e:
@@ -267,6 +271,8 @@ def microsoft_login_controller():
             "user_id": user.id,
             "role_id": user.role_id,
             "status": 1,
+            "profile_onboarding_completed": bool(user.profile_onboarding_completed),
+            "profile_onboarding_skipped": bool(getattr(user, "profile_onboarding_skipped", False)),
         }), 200
 
     except Exception as e:

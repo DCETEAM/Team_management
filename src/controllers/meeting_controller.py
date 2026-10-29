@@ -4,6 +4,7 @@ from src import db
 from src.models.meeting_model import Meeting
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_meeting(decoded_payload=None):
@@ -78,7 +79,7 @@ def get_all_meetings(decoded_payload=None):
                 "title": meeting.title,
                 "members": meeting.members,
                 "requirements": meeting.requirements,
-                "meeting_date": meeting.meeting_date.isoformat() if meeting.meeting_date else None,
+                "meeting_date": safe_isoformat(meeting.meeting_date),
                 "start_time": meeting.start_time.strftime('%H:%M') if meeting.start_time else None,
                 "end_time": meeting.end_time.strftime('%H:%M') if meeting.end_time else None,
                 "status": meeting.status,
@@ -86,7 +87,7 @@ def get_all_meetings(decoded_payload=None):
                 "created_by_role_id": meeting.created_by_role_id,
                 "created_by_role": meeting.created_by_role,
                 "created_by_person": created_by_person,
-                "created_at": meeting.created_at.isoformat() if meeting.created_at else None
+                "created_at": safe_isoformat(meeting.created_at)
             })
         return jsonify({"meetings": result, "status": 1}), 200
     except Exception as e:
@@ -113,7 +114,7 @@ def get_meeting_by_id(meeting_id, decoded_payload=None):
             "title": meeting.title,
             "members": meeting.members,
             "requirements": meeting.requirements,
-            "meeting_date": meeting.meeting_date.isoformat() if meeting.meeting_date else None,
+            "meeting_date": safe_isoformat(meeting.meeting_date),
             "start_time": meeting.start_time.strftime('%H:%M') if meeting.start_time else None,
             "end_time": meeting.end_time.strftime('%H:%M') if meeting.end_time else None,
             "status": meeting.status,
@@ -121,7 +122,7 @@ def get_meeting_by_id(meeting_id, decoded_payload=None):
             "created_by_role_id": meeting.created_by_role_id,
             "created_by_role": meeting.created_by_role,
             "created_by_person": created_by_person,
-            "created_at": meeting.created_at.isoformat() if meeting.created_at else None
+            "created_at": safe_isoformat(meeting.created_at)
         }
         return jsonify({"meeting": result, "status": 1}), 200
     except Exception as e:

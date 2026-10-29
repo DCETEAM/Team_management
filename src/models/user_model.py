@@ -18,6 +18,8 @@ class User(db.Model):
     refresh_token_created_at = db.Column(
         db.DateTime, default=datetime.datetime.utcnow
     )
+    profile_onboarding_completed = db.Column(db.Boolean, default=False, nullable=False)
+    profile_onboarding_skipped = db.Column(db.Boolean, default=False, nullable=False)
 
     def __repr__(self):
         return f"<User {self.email}>"

@@ -22,3 +22,17 @@ def parse_date(date_str):
             continue
             
     return date_str # Return as is if no format matches, SQLAlchemy might handle it or fail later
+
+
+def safe_isoformat(date_val):
+    """Serialize date/datetime for JSON; pass through strings from legacy DB rows."""
+    if date_val is None:
+        return None
+    if isinstance(date_val, str):
+        return date_val
+    try:
+        if hasattr(date_val, "isoformat"):
+            return date_val.isoformat()
+        return str(date_val)
+    except Exception:
+        return str(date_val)

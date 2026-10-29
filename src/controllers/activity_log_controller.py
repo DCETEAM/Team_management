@@ -5,6 +5,7 @@ from src import db
 from src.models.activity_log_model import ActivityLog
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_activity_log(role_id, role, table_name, record_id, action, old_data=None, new_data=None, remark=None):
@@ -62,7 +63,7 @@ def get_all_activity_logs(decoded_payload=None):
                 "ip_address": log.ip_address,
                 "user_agent": log.user_agent,
                 "remark": log.remark,
-                "created_at": log.created_at.isoformat() if log.created_at else None
+                "created_at": safe_isoformat(log.created_at)
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:
@@ -85,7 +86,7 @@ def get_logs_by_role(role_id, role):
                 "action": log.action,
                 "person": person,
                 "remark": log.remark,
-                "created_at": log.created_at.isoformat() if log.created_at else None
+                "created_at": safe_isoformat(log.created_at)
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:
@@ -112,7 +113,7 @@ def get_logs_by_table(table_name, decoded_payload=None):
                 "person": person,
                 "record_id": log.record_id,
                 "action": log.action,
-                "created_at": log.created_at.isoformat() if log.created_at else None
+                "created_at": safe_isoformat(log.created_at)
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:

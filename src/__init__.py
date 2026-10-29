@@ -21,6 +21,16 @@ def create_app():
     app = Flask(__name__)
     app.url_map.strict_slashes = False
 
+    cors_allow_headers = [
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "X-Client-Time",
+        "X-Client-Local-Date",
+    ]
+
     # Handling CORS
     CORS(
         app,
@@ -28,11 +38,11 @@ def create_app():
             r"/*": {
                 "origins": "*",
                 "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-                "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"],
-                "expose_headers": ["Content-Type", "Authorization"]
+                "allow_headers": cors_allow_headers,
+                "expose_headers": ["Content-Type", "Authorization"],
             }
         },
-        supports_credentials=True
+        supports_credentials=True,
     )
 
     # Handle OPTIONS requests explicitly
@@ -42,7 +52,7 @@ def create_app():
             response = app.make_default_options_response()
             response.headers["Access-Control-Allow-Origin"] = "*"
             response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-Requested-With, Accept, Origin"
+            response.headers["Access-Control-Allow-Headers"] = ", ".join(cors_allow_headers)
             return response
 
     # Middlewares

@@ -5,6 +5,7 @@ from src.models.project_excel_model import ProjectExcel
 from src.utils.role_utils import get_person_details
 from src.utils.image_utils import save_file
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_project_excel(decoded_payload=None):
@@ -61,7 +62,7 @@ def get_all_project_excels(decoded_payload=None):
                 "project_id": excel.project_id,
                 "file_name": excel.file_name,
                 "file_url": excel.file_url,
-                "created_at": excel.created_at.isoformat() if excel.created_at else None
+                "created_at": safe_isoformat(excel.created_at)
             })
         return jsonify({"excel_files": result, "status": 1}), 200
     except Exception as e:
@@ -83,7 +84,7 @@ def get_excel_by_id(excel_id, decoded_payload=None):
             "project_id": excel.project_id,
             "file_name": excel.file_name,
             "file_url": excel.file_url,
-            "created_at": excel.created_at.isoformat() if excel.created_at else None
+            "created_at": safe_isoformat(excel.created_at)
         }
         return jsonify({"excel_file": result, "status": 1}), 200
     except Exception as e:
@@ -104,7 +105,7 @@ def get_excels_by_project_id(project_id, decoded_payload=None):
                 "project_id": excel.project_id,
                 "file_name": excel.file_name,
                 "file_url": excel.file_url,
-                "created_at": excel.created_at.isoformat() if excel.created_at else None
+                "created_at": safe_isoformat(excel.created_at)
             })
         return jsonify({"excel_files": result, "status": 1}), 200
     except Exception as e:

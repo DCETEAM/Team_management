@@ -4,23 +4,11 @@ from src import db
 from src.models.project_model import Project
 from src.models.project_allocation_model import ProjectAllocation
 from src.models.sprint_model import Sprint
-from src.utils.date_utils import parse_date
+from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.image_utils import save_image
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
 
-
-def safe_isoformat(date_val):
-    if date_val is None:
-        return None
-    if isinstance(date_val, str):
-        return date_val
-    try:
-        if hasattr(date_val, 'isoformat'):
-            return date_val.isoformat()
-        return str(date_val)
-    except Exception:
-        return str(date_val)
 
 @db_retry(max_retries=3)
 def create_project(decoded_payload=None):

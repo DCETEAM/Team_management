@@ -18,3 +18,4 @@ from src.models.leave_request_model import LeaveRequest
 from src.models.activity_log_model import ActivityLog
 from src.models.attendance_status_model import AttendanceStatus
 from src.models.attendance_setting_model import AttendanceSetting
+from src.models.task_status_history_model import TaskStatusHistory

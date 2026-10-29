@@ -6,6 +6,7 @@ from src.models.worker_model import Worker
 from src.models.admin_model import Admin
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 def sanitize_member(member):
     """Only keep necessary fields for storage: role_id, parent_id, client_contact, and basic identification."""
@@ -114,8 +115,8 @@ def get_all_allocations(decoded_payload=None):
                 "project_name": alloc.project.name if alloc.project else None,
                 "project_logo": alloc.project.project_logo if alloc.project else None,
                 "members": enriched_members,
-                "start_date": alloc.start_date.isoformat(),
-                "end_date": alloc.end_date.isoformat() if alloc.end_date else None,
+                "start_date": safe_isoformat(alloc.start_date),
+                "end_date": safe_isoformat(alloc.end_date),
                 "remark": alloc.remark,
                 "allocated_by_role_id": alloc.allocated_by_role_id,
                 "allocated_by_role": alloc.allocated_by_role,
@@ -169,8 +170,8 @@ def get_allocation_by_project_id(project_id, decoded_payload=None):
             "project_name": alloc.project.name if alloc.project else None,
             "project_logo": alloc.project.project_logo if alloc.project else None,
             "members": enriched_members,
-            "start_date": alloc.start_date.isoformat(),
-            "end_date": alloc.end_date.isoformat() if alloc.end_date else None,
+            "start_date": safe_isoformat(alloc.start_date),
+            "end_date": safe_isoformat(alloc.end_date),
             "remark": alloc.remark,
             "allocated_by_role_id": alloc.allocated_by_role_id,
             "allocated_by_role": alloc.allocated_by_role,
@@ -217,8 +218,8 @@ def get_allocation_by_id(allocation_id, decoded_payload=None):
             "project_name": alloc.project.name if alloc.project else None,
             "project_logo": alloc.project.project_logo if alloc.project else None,
             "members": enriched_members,
-            "start_date": alloc.start_date.isoformat(),
-            "end_date": alloc.end_date.isoformat() if alloc.end_date else None,
+            "start_date": safe_isoformat(alloc.start_date),
+            "end_date": safe_isoformat(alloc.end_date),
             "remark": alloc.remark,
             "allocated_by_role_id": alloc.allocated_by_role_id,
             "allocated_by_role": alloc.allocated_by_role,

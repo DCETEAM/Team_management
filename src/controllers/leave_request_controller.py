@@ -6,6 +6,7 @@ from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
 from werkzeug.utils import secure_filename
 import os
+from src.utils.date_utils import safe_isoformat
 from config import Config
 
 
@@ -144,8 +145,8 @@ def get_all_leave_requests(decoded_payload):
                 "type": leave.type,
                 "leave_subtype": leave.leave_subtype,
                 "reason": leave.reason,
-                "start_date": leave.start_date.isoformat() if leave.start_date else None,
-                "end_date": leave.end_date.isoformat() if leave.end_date else None,
+                "start_date": safe_isoformat(leave.start_date),
+                "end_date": safe_isoformat(leave.end_date),
                 "start_time": leave.start_time.strftime('%H:%M') if leave.start_time else None,
                 "end_time": leave.end_time.strftime('%H:%M') if leave.end_time else None,
                 "attachment_path": leave.attachment_path,
@@ -153,10 +154,10 @@ def get_all_leave_requests(decoded_payload):
                 "reviewed_by_role_id": leave.reviewed_by_role_id,
                 "reviewed_by_role": leave.reviewed_by_role,
                 "reviewed_by_person": reviewed_by_person,
-                "reviewed_at": leave.reviewed_at.isoformat() if leave.reviewed_at else None,
+                "reviewed_at": safe_isoformat(leave.reviewed_at),
                 "review_comment": leave.review_comment,
                 "remark": leave.remark,
-                "created_at": leave.created_at.isoformat() if leave.created_at else None
+                "created_at": safe_isoformat(leave.created_at)
             })
         return jsonify({"leaves": result, "status": 1}), 200
     except Exception as e:
@@ -184,15 +185,15 @@ def get_my_leave_requests(decoded_payload):
                 "type": leave.type,
                 "leave_subtype": leave.leave_subtype,
                 "reason": leave.reason,
-                "start_date": leave.start_date.isoformat() if leave.start_date else None,
-                "end_date": leave.end_date.isoformat() if leave.end_date else None,
+                "start_date": safe_isoformat(leave.start_date),
+                "end_date": safe_isoformat(leave.end_date),
                 "start_time": leave.start_time.strftime('%H:%M') if leave.start_time else None,
                 "end_time": leave.end_time.strftime('%H:%M') if leave.end_time else None,
                 "attachment_path": leave.attachment_path,
                 "status": leave.status,
                 "reviewed_by_person": reviewed_by_person,
                 "review_comment": leave.review_comment,
-                "created_at": leave.created_at.isoformat() if leave.created_at else None
+                "created_at": safe_isoformat(leave.created_at)
             })
         return jsonify({"leaves": result, "status": 1}), 200
     except Exception as e:
@@ -238,7 +239,7 @@ def get_leave_request_by_id(leave_id, decoded_payload):
                 "old_status": audit.old_status,
                 "new_status": audit.new_status,
                 "performed_by": performed_by,
-                "performed_at": audit.performed_at.isoformat() if audit.performed_at else None,
+                "performed_at": safe_isoformat(audit.performed_at),
                 "comment": audit.comment
             })
         
@@ -253,8 +254,8 @@ def get_leave_request_by_id(leave_id, decoded_payload):
             "type": leave.type,
             "leave_subtype": leave.leave_subtype,
             "reason": leave.reason,
-            "start_date": leave.start_date.isoformat() if leave.start_date else None,
-            "end_date": leave.end_date.isoformat() if leave.end_date else None,
+            "start_date": safe_isoformat(leave.start_date),
+            "end_date": safe_isoformat(leave.end_date),
             "start_time": leave.start_time.strftime('%H:%M') if leave.start_time else None,
             "end_time": leave.end_time.strftime('%H:%M') if leave.end_time else None,
             "attachment_path": leave.attachment_path,
@@ -262,10 +263,10 @@ def get_leave_request_by_id(leave_id, decoded_payload):
             "reviewed_by_role_id": leave.reviewed_by_role_id,
             "reviewed_by_role": leave.reviewed_by_role,
             "reviewed_by_person": reviewed_by_person,
-            "reviewed_at": leave.reviewed_at.isoformat() if leave.reviewed_at else None,
+            "reviewed_at": safe_isoformat(leave.reviewed_at),
             "review_comment": leave.review_comment,
             "remark": leave.remark,
-            "created_at": leave.created_at.isoformat() if leave.created_at else None,
+            "created_at": safe_isoformat(leave.created_at),
             "audit_logs": audit_logs
         }
         

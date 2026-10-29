@@ -31,6 +31,8 @@ class Worker(db.Model):
     employment_type = db.Column(db.Enum('FULL_TIME', 'INTERN', 'CONTRACT', name='employment_type_enum'), nullable=True)
     status = db.Column(db.Enum('ACTIVE', 'INACTIVE', 'RESIGNED', name='worker_status_enum'), default='ACTIVE')
     remark = db.Column(db.Text, nullable=True)
+    profile_onboarding_completed = db.Column(db.Boolean, default=False, nullable=False)
+    profile_onboarding_skipped = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     

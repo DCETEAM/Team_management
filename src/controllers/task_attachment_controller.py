@@ -8,6 +8,7 @@ from src.models.task_attachment_model import TaskAttachment
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
 from src.utils.image_utils import save_attachment, delete_image
+from src.utils.date_utils import safe_isoformat
 
 # Define the upload folder
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -120,8 +121,8 @@ def get_all_attachments(decoded_payload=None):
                 "file_url": attachment.file_url,
                 "file_size": attachment.file_size,
                 "remark": attachment.remark,
-                "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
-                "updated_at": attachment.updated_at.isoformat() if attachment.updated_at else None
+                "created_at": safe_isoformat(attachment.created_at),
+                "updated_at": safe_isoformat(attachment.updated_at)
             })
         return jsonify({"attachments": result, "status": 1}), 200
     except Exception as e:
@@ -148,8 +149,8 @@ def get_attachments_by_task_id(task_id, decoded_payload=None):
                 "file_url": attachment.file_url,
                 "file_size": attachment.file_size,
                 "remark": attachment.remark,
-                "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
-                "updated_at": attachment.updated_at.isoformat() if attachment.updated_at else None
+                "created_at": safe_isoformat(attachment.created_at),
+                "updated_at": safe_isoformat(attachment.updated_at)
             })
         return jsonify({"attachments": result, "status": 1}), 200
     except Exception as e:
@@ -177,8 +178,8 @@ def get_attachment_by_id(attachment_id, decoded_payload=None):
             "file_url": attachment.file_url,
             "file_size": attachment.file_size,
             "remark": attachment.remark,
-            "created_at": attachment.created_at.isoformat() if attachment.created_at else None,
-            "updated_at": attachment.updated_at.isoformat() if attachment.updated_at else None
+            "created_at": safe_isoformat(attachment.created_at),
+            "updated_at": safe_isoformat(attachment.updated_at)
         }
         return jsonify({"attachment": result, "status": 1}), 200
     except Exception as e:

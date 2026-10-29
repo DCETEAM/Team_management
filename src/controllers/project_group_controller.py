@@ -3,6 +3,7 @@ from src import db
 from src.models.project_group_model import ProjectGroup
 from src.models.project_model import Project
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_project_group(decoded_payload=None):
@@ -51,7 +52,7 @@ def get_all_project_groups(decoded_payload=None):
                 "name": group.name,
                 "description": group.description,
                 "project_count": len(group.projects),
-                "created_at": group.created_at.isoformat()
+                "created_at": safe_isoformat(group.created_at)
             })
         return jsonify({"groups": result, "status": 1}), 200
     except Exception as e:
@@ -80,7 +81,7 @@ def get_project_group_by_id(group_id, decoded_payload=None):
             "name": group.name,
             "description": group.description,
             "projects": projects,
-            "created_at": group.created_at.isoformat()
+            "created_at": safe_isoformat(group.created_at)
         }
         return jsonify({"group": result, "status": 1}), 200
     except Exception as e:

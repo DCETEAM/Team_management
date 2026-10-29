@@ -1,20 +1,14 @@
 from flask import jsonify, request
 from src import db
 from src.models.sprint_model import Sprint
+from src.models.project_model import Project
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
+from src.utils.project_permissions import (
+    can_manage_project_sprints,
+    restriction_message,
+)
 
-
-def safe_isoformat(date_val):
-    if date_val is None:
-        return None
-    if isinstance(date_val, str):
-        return date_val
-    try:
-        if hasattr(date_val, 'isoformat'):
-            return date_val.isoformat()
-        return str(date_val)
-    except Exception:
-        return str(date_val)
 
 @db_retry(max_retries=3)
 def create_sprint(decoded_payload=None):
@@ -33,6 +27,19 @@ def create_sprint(decoded_payload=None):
 
         if not project_id or not sprint_name or not start_date:
             return jsonify({"msg": "Project ID, Sprint Name, and Start Date are required", "status": 0}), 400
+
+        project = Project.query.get(project_id)
+        if not project:
+            return jsonify({"message": "Project not found", "status": 0}), 404
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+        if not can_manage_project_sprints(project, actor_role):
+            return jsonify(
+                {
+                    "msg": restriction_message(project, "Creating sprints"),
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
 
         # Determine sprint_status based on status
         sprint_status = 0
@@ -195,6 +202,17 @@ def update_sprint(sprint_id, decoded_payload=None):
         if not sprint:
             return jsonify({"message": "Sprint not found", "status": 0}), 404
 
+        project = Project.query.get(sprint.project_id)
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+        if not can_manage_project_sprints(project, actor_role):
+            return jsonify(
+                {
+                    "msg": restriction_message(project, "Updating sprints"),
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
+
         data = request.get_json()
         
         if "project_id" in data:
@@ -233,6 +251,17 @@ def delete_sprint(sprint_id, decoded_payload=None):
         sprint = Sprint.query.get(sprint_id)
         if not sprint:
             return jsonify({"message": "Sprint not found", "status": 0}), 404
+
+        project = Project.query.get(sprint.project_id)
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+        if not can_manage_project_sprints(project, actor_role):
+            return jsonify(
+                {
+                    "msg": restriction_message(project, "Deleting sprints"),
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
             
         # Check if there are any tasks in this sprint
         task_count = Task.query.filter_by(sprint_id=sprint_id).count()

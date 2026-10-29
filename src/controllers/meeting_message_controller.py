@@ -4,6 +4,7 @@ from src import db
 from src.models.meeting_message_model import MeetingMessage
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_message(decoded_payload=None):
@@ -62,9 +63,9 @@ def get_messages_by_meeting(meeting_id, decoded_payload=None):
                 "attachment_url": msg.attachment_url,
                 "attachment_name": msg.attachment_name,
                 "is_edited": msg.is_edited,
-                "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+                "edited_at": safe_isoformat(msg.edited_at),
                 "remark": msg.remark,
-                "created_at": msg.created_at.isoformat() if msg.created_at else None
+                "created_at": safe_isoformat(msg.created_at)
             })
         return jsonify({"messages": result, "status": 1}), 200
     except Exception as e:
@@ -91,9 +92,9 @@ def get_message_by_id(message_id, decoded_payload=None):
             "attachment_url": msg.attachment_url,
             "attachment_name": msg.attachment_name,
             "is_edited": msg.is_edited,
-            "edited_at": msg.edited_at.isoformat() if msg.edited_at else None,
+            "edited_at": safe_isoformat(msg.edited_at),
             "remark": msg.remark,
-            "created_at": msg.created_at.isoformat() if msg.created_at else None
+            "created_at": safe_isoformat(msg.created_at)
         }
         return jsonify({"message": result, "status": 1}), 200
     except Exception as e:

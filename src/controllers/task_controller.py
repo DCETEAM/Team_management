@@ -6,9 +6,16 @@ from src.models.task_status_model import TaskStatus
 from src.models.sprint_model import Sprint
 from src.models.project_model import Project
 from src.models.project_group_model import ProjectGroup
-from src.utils.date_utils import parse_date
+from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.project_permissions import (
+    can_modify_project_tasks,
+    can_move_task_to_status,
+    can_manage_project_sprints,
+    restriction_message,
+)
+from src.controllers.task_status_history_controller import record_task_status_change
 
 @db_retry(max_retries=3)
 def create_task(decoded_payload=None):
@@ -70,6 +77,19 @@ def create_task(decoded_payload=None):
         
         if not all([project_id, status_id, title, assigned_by_role_id, assigned_by_role]):
             return jsonify({"msg": "Project, Status, Title, and Assigner are required", "status": 0}), 400
+
+        project = Project.query.get(project_id)
+        if not project:
+            return jsonify({"message": "Project not found", "status": 0}), 404
+        actor_role = assigned_by_role or (decoded_payload.get("role") if decoded_payload else None)
+        if not can_modify_project_tasks(project, actor_role):
+            return jsonify(
+                {
+                    "msg": restriction_message(project, "Creating tasks"),
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
 
         start_date = parse_date(start_date_str) if start_date_str else None
         due_date = parse_date(due_date_str) if due_date_str else None
@@ -190,8 +210,8 @@ def get_tasks_by_project(project_id, decoded_payload=None):
                 "description": task.description,
                 "goal": task.goal,
                 "priority": task.priority,
-                "start_date": task.start_date.isoformat() if task.start_date else None,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "start_date": safe_isoformat(task.start_date),
+                "due_date": safe_isoformat(task.due_date),
                 "assigned_by_role_id": task.assigned_by_role_id,
                 "assigned_by_role": task.assigned_by_role,
                 "assigned_by_person": assigned_by_person,
@@ -264,8 +284,8 @@ def get_tasks_by_sprint(sprint_id, decoded_payload=None):
                 "description": task.description,
                 "goal": task.goal,
                 "priority": task.priority,
-                "start_date": task.start_date.isoformat() if task.start_date else None,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "start_date": safe_isoformat(task.start_date),
+                "due_date": safe_isoformat(task.due_date),
                 "assigned_by_role_id": task.assigned_by_role_id,
                 "assigned_by_role": task.assigned_by_role,
                 "assigned_by_person": assigned_by_person,
@@ -337,8 +357,8 @@ def get_all_tasks(decoded_payload=None):
                 "description": task.description,
                 "goal": task.goal,
                 "priority": task.priority,
-                "start_date": task.start_date.isoformat() if task.start_date else None,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "start_date": safe_isoformat(task.start_date),
+                "due_date": safe_isoformat(task.due_date),
                 "assigned_by_role_id": task.assigned_by_role_id,
                 "assigned_by_role": task.assigned_by_role,
                 "assigned_by_person": assigned_by_person,
@@ -410,8 +430,8 @@ def get_task_by_id(task_id, decoded_payload=None):
             "description": task.description,
             "goal": task.goal,
             "priority": task.priority,
-            "start_date": task.start_date.isoformat() if task.start_date else None,
-            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "start_date": safe_isoformat(task.start_date),
+            "due_date": safe_isoformat(task.due_date),
             "assigned_by_role_id": task.assigned_by_role_id,
             "assigned_by_role": task.assigned_by_role,
             "assigned_by_person": assigned_by_person,
@@ -442,8 +462,51 @@ def update_task(task_id, decoded_payload=None):
 
         data = request.get_json()
         
+        project = Project.query.get(task.project_id)
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+
+        mutating_fields = {
+            "project_id",
+            "sprint_id",
+            "allocation_id",
+            "title",
+            "description",
+            "goal",
+            "priority",
+            "start_date",
+            "due_date",
+            "members",
+            "worker_ids",
+            "estimated_hours",
+            "actual_hours",
+            "remark",
+        }
+        is_status_only = "status_id" in data and not any(k in data for k in mutating_fields)
+
+        if any(k in data for k in mutating_fields):
+            if not can_modify_project_tasks(project, actor_role):
+                return jsonify(
+                    {
+                        "msg": restriction_message(project, "Editing tasks"),
+                        "status": 0,
+                        "restricted": True,
+                    }
+                ), 403
+        
         if "status_id" in data:
             new_status = TaskStatus.query.get(data["status_id"])
+            old_status_id = task.status_id
+            old_status = TaskStatus.query.get(old_status_id)
+
+            if not can_move_task_to_status(actor_role, new_status):
+                return jsonify(
+                    {
+                        "msg": "This status is confidential. Moving tasks here is restricted for workers.",
+                        "status": 0,
+                        "restricted": True,
+                    }
+                ), 403
+
             if new_status and new_status.is_completed:
                 # Check if all subtasks are completed
                 if task.sub_tasks and len(task.sub_tasks) > 0:
@@ -464,6 +527,15 @@ def update_task(task_id, decoded_payload=None):
             task.allocation_id = data["allocation_id"]
         if "status_id" in data:
             task.status_id = data["status_id"]
+            if old_status_id != data["status_id"]:
+                record_task_status_change(
+                    task,
+                    old_status_id,
+                    data["status_id"],
+                    old_status,
+                    new_status,
+                    decoded_payload,
+                )
         if "title" in data:
             task.title = data["title"]
         if "description" in data:
@@ -504,6 +576,17 @@ def delete_task(task_id, decoded_payload=None):
         task = Task.query.get(task_id)
         if not task:
             return jsonify({"message": "Task not found", "status": 0}), 404
+
+        project = Project.query.get(task.project_id)
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+        if not can_modify_project_tasks(project, actor_role):
+            return jsonify(
+                {
+                    "msg": restriction_message(project, "Deleting tasks"),
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
         
         # First delete all sub-tasks
         from src.models.sub_task_model import SubTask
@@ -649,15 +732,15 @@ def get_dashboard_tasks(decoded_payload=None):
                         "description": task.description,
                         "goal": task.goal,
                         "priority": task.priority,
-                        "start_date": task.start_date.isoformat() if task.start_date else None,
-                        "due_date": task.due_date.isoformat() if task.due_date else None,
+                        "start_date": safe_isoformat(task.start_date),
+                        "due_date": safe_isoformat(task.due_date),
                         "assigned_by_role_id": task.assigned_by_role_id,
                         "assigned_by_role": task.assigned_by_role,
                         "assigned_by_person": assigned_by_person,
                         "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                         "actual_hours": total_actual_hours,
                         "remark": task.remark,
-                        "created_at": task.created_at.isoformat() if task.created_at else None,
+                        "created_at": safe_isoformat(task.created_at),
                         "members": enriched_members
                     }
                     
@@ -785,15 +868,15 @@ def get_dashboard_tasks(decoded_payload=None):
                         "description": task.description,
                         "goal": task.goal,
                         "priority": task.priority,
-                        "start_date": task.start_date.isoformat() if task.start_date else None,
-                        "due_date": task.due_date.isoformat() if task.due_date else None,
+                        "start_date": safe_isoformat(task.start_date),
+                        "due_date": safe_isoformat(task.due_date),
                         "assigned_by_role_id": task.assigned_by_role_id,
                         "assigned_by_role": task.assigned_by_role,
                         "assigned_by_person": assigned_by_person,
                         "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                         "actual_hours": total_actual_hours,
                         "remark": task.remark,
-                        "created_at": task.created_at.isoformat() if task.created_at else None,
+                        "created_at": safe_isoformat(task.created_at),
                         "members": enriched_members
                     }
                     
@@ -919,8 +1002,8 @@ def get_project_backlog(project_id, decoded_payload=None):
                 "description": task.description,
                 "goal": task.goal,
                 "priority": task.priority,
-                "start_date": task.start_date.isoformat() if task.start_date else None,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "start_date": safe_isoformat(task.start_date),
+                "due_date": safe_isoformat(task.due_date),
                 "assigned_by_role_id": task.assigned_by_role_id,
                 "assigned_by_role": task.assigned_by_role,
                 "assigned_by_person": assigned_by_person,
@@ -930,7 +1013,7 @@ def get_project_backlog(project_id, decoded_payload=None):
                 "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                 "actual_hours": total_actual_hours,
                 "remark": task.remark,
-                "created_at": task.created_at.isoformat() if task.created_at else None,
+                "created_at": safe_isoformat(task.created_at),
                 "members": enriched_members
             }
             enriched_backlog_tasks.append(task_data)
@@ -1016,8 +1099,8 @@ def get_project_backlog(project_id, decoded_payload=None):
                     "description": task.description,
                     "goal": task.goal,
                     "priority": task.priority,
-                    "start_date": task.start_date.isoformat() if task.start_date else None,
-                    "due_date": task.due_date.isoformat() if task.due_date else None,
+                    "start_date": safe_isoformat(task.start_date),
+                    "due_date": safe_isoformat(task.due_date),
                     "assigned_by_role_id": task.assigned_by_role_id,
                     "assigned_by_role": task.assigned_by_role,
                     "assigned_by_person": assigned_by_person,
@@ -1027,7 +1110,7 @@ def get_project_backlog(project_id, decoded_payload=None):
                     "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                     "actual_hours": float(task.actual_hours) if task.actual_hours else None,
                     "remark": task.remark,
-                    "created_at": task.created_at.isoformat() if task.created_at else None,
+                    "created_at": safe_isoformat(task.created_at),
                     "members": enriched_members
                 }
                 enriched_sprint_tasks.append(task_data)
@@ -1038,14 +1121,14 @@ def get_project_backlog(project_id, decoded_payload=None):
                 "sprint_name": sprint.sprint_name,
                 "sprint_goal": sprint.sprint_goal,
                 "description": sprint.description,
-                "start_date": sprint.start_date.isoformat() if sprint.start_date else None,
-                "end_date": sprint.end_date.isoformat() if sprint.end_date else None,
+                "start_date": safe_isoformat(sprint.start_date),
+                "end_date": safe_isoformat(sprint.end_date),
                 "status": sprint.status,
                 "is_active": sprint.is_active,
                 "created_by": sprint.created_by,
                 "updated_by": sprint.updated_by,
-                "created_at": sprint.created_at.isoformat() if sprint.created_at else None,
-                "updated_at": sprint.updated_at.isoformat() if sprint.updated_at else None,
+                "created_at": safe_isoformat(sprint.created_at),
+                "updated_at": safe_isoformat(sprint.updated_at),
                 "tasks": enriched_sprint_tasks
             }
             enriched_sprints.append(sprint_data)

@@ -7,6 +7,7 @@ from src.models.admin_model import Admin
 from src.models.worker_model import Worker
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
@@ -131,15 +132,15 @@ def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
                 "description": task.description,
                 "goal": task.goal,
                 "priority": task.priority,
-                "start_date": task.start_date.isoformat() if task.start_date else None,
-                "due_date": task.due_date.isoformat() if task.due_date else None,
+                "start_date": safe_isoformat(task.start_date),
+                "due_date": safe_isoformat(task.due_date),
                 "worker_ids": task_members or [],
                 "assigned_workers": [],
                 "assigned_by": task.assigned_by if hasattr(task, 'assigned_by') else None,
                 "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                 "actual_hours": float(task.actual_hours) if task.actual_hours else None,
                 "remark": task.remark,
-                "created_at": task.created_at.isoformat() if task.created_at else None
+                "created_at": safe_isoformat(task.created_at)
             }
             
             if task_members:
@@ -248,8 +249,8 @@ def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
                 "project_id": allocation.project_id,
                 "members": allocation.members,
                 "remark": allocation.remark,
-                "created_at": allocation.created_at.isoformat() if allocation.created_at else None,
-                "updated_at": allocation.updated_at.isoformat() if allocation.updated_at else None
+                "created_at": safe_isoformat(allocation.created_at),
+                "updated_at": safe_isoformat(allocation.updated_at)
             }
         
         all_admins_list = []

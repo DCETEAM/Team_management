@@ -18,8 +18,11 @@ from src.routes.project_member_route import project_member_bp
 from src.routes.project_task_route import project_task_bp
 from src.routes.project_excel_route import project_excel_bp
 from src.routes.sprint_route import sprint_bp
+from src.routes.task_status_history_route import task_status_history_bp
 from src.routes.attendance_status_route import attendance_status_bp
 from src.routes.attendance_setting_route import attendance_setting_bp
+from src.routes.profile_route import profile_bp
+from src.routes.monitor_route import monitor_bp
 
 
 def init_routes(app):
@@ -43,7 +46,10 @@ def init_routes(app):
     app.register_blueprint(project_task_bp)
     app.register_blueprint(project_excel_bp)
     app.register_blueprint(sprint_bp)
+    app.register_blueprint(task_status_history_bp)
     app.register_blueprint(attendance_status_bp)
     app.register_blueprint(attendance_setting_bp)
+    app.register_blueprint(profile_bp)
+    app.register_blueprint(monitor_bp)
 
 

@@ -4,6 +4,7 @@ from src import db
 from src.models.sub_task_model import SubTask
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.date_utils import safe_isoformat
 
 @db_retry(max_retries=3)
 def create_sub_task(decoded_payload=None):
@@ -81,8 +82,8 @@ def get_sub_tasks_by_task_id(task_id, decoded_payload=None):
                 "title": st.title,
                 "description": st.description,
                 "priority": st.priority,
-                "start_date": st.start_date.isoformat() if st.start_date else None,
-                "due_date": st.due_date.isoformat() if st.due_date else None,
+                "start_date": safe_isoformat(st.start_date),
+                "due_date": safe_isoformat(st.due_date),
                 "role_id": st.role_id,
                 "role": st.role,
                 "assigned_person": assigned_person,
@@ -118,8 +119,8 @@ def get_all_sub_tasks(decoded_payload=None):
                 "title": st.title,
                 "description": st.description,
                 "priority": st.priority,
-                "start_date": st.start_date.isoformat() if st.start_date else None,
-                "due_date": st.due_date.isoformat() if st.due_date else None,
+                "start_date": safe_isoformat(st.start_date),
+                "due_date": safe_isoformat(st.due_date),
                 "role_id": st.role_id,
                 "role": st.role,
                 "assigned_person": assigned_person,
@@ -156,8 +157,8 @@ def get_sub_task_by_id(sub_task_id, decoded_payload=None):
             "title": st.title,
             "description": st.description,
             "priority": st.priority,
-            "start_date": st.start_date.isoformat() if st.start_date else None,
-            "due_date": st.due_date.isoformat() if st.due_date else None,
+            "start_date": safe_isoformat(st.start_date),
+            "due_date": safe_isoformat(st.due_date),
             "role_id": st.role_id,
             "role": st.role,
             "assigned_person": assigned_person,

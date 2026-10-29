@@ -28,6 +28,8 @@ class Admin(db.Model):
     last_login = db.Column(db.DateTime, nullable=True)
     joining_date = db.Column(db.Date, nullable=True)
     remark = db.Column(db.Text, nullable=True)
+    profile_onboarding_completed = db.Column(db.Boolean, default=False, nullable=False)
+    profile_onboarding_skipped = db.Column(db.Boolean, default=False, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     
