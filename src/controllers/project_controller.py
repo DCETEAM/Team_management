@@ -7,11 +7,9 @@ from src.models.sprint_model import Sprint
 from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.image_utils import save_image
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from src.utils.request_client_time import stamp_model_times, touch_updated_at
 
 
-@db_retry(max_retries=3)
 def create_project(decoded_payload=None):
     try:
         data = request.get_json()
@@ -91,12 +89,8 @@ def create_project(decoded_payload=None):
         return jsonify({"msg": "Project created successfully and allocation initialized", "status": 1, "project_id": new_project.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_project(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_projects(decoded_payload=None):
     try:
         role = request.args.get("role")
@@ -172,12 +166,8 @@ def get_all_projects(decoded_payload=None):
             })
         return jsonify({"projects": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_projects(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_project_by_id(project_id, decoded_payload=None):
     try:
         project = Project.query.get(project_id)
@@ -234,12 +224,8 @@ def get_project_by_id(project_id, decoded_payload=None):
         }
         return jsonify({"project": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_project_by_id(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_project(project_id, decoded_payload=None):
     try:
         project = Project.query.get(project_id)
@@ -283,12 +269,8 @@ def update_project(project_id, decoded_payload=None):
         return jsonify({"message": "Project updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_project(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_project(project_id, decoded_payload=None):
     try:
         project = Project.query.get(project_id)
@@ -336,7 +318,4 @@ def delete_project(project_id, decoded_payload=None):
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting project: {str(e)}")
-        if "MySQL server has gone away" in str(e):
-            return delete_project(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "msg": "Failed to delete project. Please try again later.", "status": 0}), 500
+        return jsonify({"success": 0, "msg": "Failed to delete project. Please try again later.", "status": 0}), 500

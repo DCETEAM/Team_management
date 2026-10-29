@@ -24,32 +24,35 @@ from src.routes.attendance_setting_route import attendance_setting_bp
 from src.routes.profile_route import profile_bp
 from src.routes.monitor_route import monitor_bp
 
+ALL_BLUEPRINTS = (
+    auth_bp,
+    admin_bp,
+    worker_bp,
+    client_bp,
+    task_status_bp,
+    project_bp,
+    project_allocation_bp,
+    task_bp,
+    sub_task_bp,
+    task_comment_bp,
+    task_attachment_bp,
+    meeting_bp,
+    meeting_message_bp,
+    leave_request_bp,
+    activity_log_bp,
+    project_group_bp,
+    project_member_bp,
+    project_task_bp,
+    project_excel_bp,
+    sprint_bp,
+    task_status_history_bp,
+    attendance_status_bp,
+    attendance_setting_bp,
+    profile_bp,
+    monitor_bp,
+)
+
 
 def init_routes(app):
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(admin_bp)
-    app.register_blueprint(worker_bp)
-    app.register_blueprint(client_bp)
-    app.register_blueprint(task_status_bp)
-    app.register_blueprint(project_bp)
-    app.register_blueprint(project_allocation_bp)
-    app.register_blueprint(task_bp)
-    app.register_blueprint(sub_task_bp)
-    app.register_blueprint(task_comment_bp)
-    app.register_blueprint(task_attachment_bp)
-    app.register_blueprint(meeting_bp)
-    app.register_blueprint(meeting_message_bp)
-    app.register_blueprint(leave_request_bp)
-    app.register_blueprint(activity_log_bp)
-    app.register_blueprint(project_group_bp)
-    app.register_blueprint(project_member_bp)
-    app.register_blueprint(project_task_bp)
-    app.register_blueprint(project_excel_bp)
-    app.register_blueprint(sprint_bp)
-    app.register_blueprint(task_status_history_bp)
-    app.register_blueprint(attendance_status_bp)
-    app.register_blueprint(attendance_setting_bp)
-    app.register_blueprint(profile_bp)
-    app.register_blueprint(monitor_bp)
-
-
+    for bp in ALL_BLUEPRINTS:
+        app.register_blueprint(bp)

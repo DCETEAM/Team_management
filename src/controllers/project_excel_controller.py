@@ -4,11 +4,9 @@ from src import db
 from src.models.project_excel_model import ProjectExcel
 from src.utils.role_utils import get_person_details
 from src.utils.image_utils import save_file
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
 from src.utils.request_client_time import stamp_model_times, touch_updated_at
 
-@db_retry(max_retries=3)
 def create_project_excel(decoded_payload=None):
     try:
         data = request.get_json()
@@ -49,13 +47,9 @@ def create_project_excel(decoded_payload=None):
         }), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_project_excel(decoded_payload)
-        else:
-            print("Error creating excel:", str(e))
-            return jsonify({"success": 0, "error": str(e)}), 500
+        print("Error creating excel:", str(e))
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_project_excels(decoded_payload=None):
     try:
         excel_files = ProjectExcel.query.all()
@@ -71,12 +65,8 @@ def get_all_project_excels(decoded_payload=None):
         return jsonify({"excel_files": result, "status": 1}), 200
     except Exception as e:
         print("Error getting all excels:", str(e))
-        if "MySQL server has gone away" in str(e):
-            return get_all_project_excels(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_excel_by_id(excel_id, decoded_payload=None):
     try:
         excel = ProjectExcel.query.get(excel_id)
@@ -93,12 +83,8 @@ def get_excel_by_id(excel_id, decoded_payload=None):
         return jsonify({"excel_file": result, "status": 1}), 200
     except Exception as e:
         print("Error getting excel by id:", str(e))
-        if "MySQL server has gone away" in str(e):
-            return get_excel_by_id(excel_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_excels_by_project_id(project_id, decoded_payload=None):
     try:
         excel_files = ProjectExcel.query.filter_by(project_id=project_id).all()
@@ -114,12 +100,8 @@ def get_excels_by_project_id(project_id, decoded_payload=None):
         return jsonify({"excel_files": result, "status": 1}), 200
     except Exception as e:
         print("Error getting excels by project id:", str(e))
-        if "MySQL server has gone away" in str(e):
-            return get_excels_by_project_id(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_project_excel(excel_id, decoded_payload=None):
     try:
         excel = ProjectExcel.query.get(excel_id)
@@ -138,13 +120,9 @@ def update_project_excel(excel_id, decoded_payload=None):
         return jsonify({"msg": "Excel file updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_project_excel(excel_id, decoded_payload)
-        else:
-            print("Error updating excel:", str(e))
-            return jsonify({"success": 0, "error": str(e)}), 500
+        print("Error updating excel:", str(e))
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_project_excel(excel_id, decoded_payload=None):
     try:
         excel = ProjectExcel.query.get(excel_id)
@@ -156,8 +134,5 @@ def delete_project_excel(excel_id, decoded_payload=None):
         return jsonify({"msg": "Excel file deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_project_excel(excel_id, decoded_payload)
-        else:
-            print("Error deleting excel:", str(e))
-            return jsonify({"success": 0, "error": str(e)}), 500
+        print("Error deleting excel:", str(e))
+        return jsonify({"success": 0, "error": str(e)}), 500

@@ -8,7 +8,6 @@ from src.models.project_model import Project
 from src.models.project_group_model import ProjectGroup
 from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from src.utils.project_permissions import (
     can_modify_project_tasks,
     can_move_task_to_status,
@@ -17,7 +16,6 @@ from src.utils.project_permissions import (
 )
 from src.controllers.task_status_history_controller import record_task_status_change
 
-@db_retry(max_retries=3)
 def create_task(decoded_payload=None):
     try:
         data = request.get_json()
@@ -156,12 +154,8 @@ def create_task(decoded_payload=None):
         return jsonify({"msg": "Task(s) created successfully", "status": 1, "task_ids": created_task_ids}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_task(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_tasks_by_project(project_id, decoded_payload=None):
     try:
         tasks = Task.query.filter_by(project_id=project_id).all()
@@ -230,12 +224,8 @@ def get_tasks_by_project(project_id, decoded_payload=None):
         import traceback
         print(f"Error in get_tasks_by_project: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_tasks_by_project(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_tasks_by_sprint(sprint_id, decoded_payload=None):
     try:
         tasks = Task.query.filter_by(sprint_id=sprint_id).all()
@@ -304,12 +294,8 @@ def get_tasks_by_sprint(sprint_id, decoded_payload=None):
         import traceback
         print(f"Error in get_tasks_by_sprint: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_tasks_by_sprint(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_tasks(decoded_payload=None):
     try:
         tasks = Task.query.all()
@@ -376,12 +362,8 @@ def get_all_tasks(decoded_payload=None):
         import traceback
         print(f"Error in get_all_tasks: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_all_tasks(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_task_by_id(task_id, decoded_payload=None):
     try:
         task = Task.query.get(task_id)
@@ -448,12 +430,8 @@ def get_task_by_id(task_id, decoded_payload=None):
         import traceback
         print(f"Error in get_task_by_id: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_task_by_id(task_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_task(task_id, decoded_payload=None):
     try:
         task = Task.query.get(task_id)
@@ -565,12 +543,8 @@ def update_task(task_id, decoded_payload=None):
         return jsonify({"message": "Task updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_task(task_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_task(task_id, decoded_payload=None):
     try:
         task = Task.query.get(task_id)
@@ -588,21 +562,24 @@ def delete_task(task_id, decoded_payload=None):
                 }
             ), 403
         
-        # First delete all sub-tasks
+        # Remove dependent rows (ORM would try SET task_id=NULL on history, which violates FK)
         from src.models.sub_task_model import SubTask
-        SubTask.query.filter_by(parent_task_id=task_id).delete()
-            
+        from src.models.task_status_history_model import TaskStatusHistory
+        from src.models.task_comment_model import TaskComment
+        from src.models.task_attachment_model import TaskAttachment
+
+        SubTask.query.filter_by(parent_task_id=task_id).delete(synchronize_session=False)
+        TaskStatusHistory.query.filter_by(task_id=task_id).delete(synchronize_session=False)
+        TaskComment.query.filter_by(task_id=task_id).delete(synchronize_session=False)
+        TaskAttachment.query.filter_by(task_id=task_id).delete(synchronize_session=False)
+
         db.session.delete(task)
         db.session.commit()
         return jsonify({"message": "Task deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_task(task_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_dashboard_tasks(decoded_payload=None):
     try:
         # Fetch all project groups
@@ -891,13 +868,9 @@ def get_dashboard_tasks(decoded_payload=None):
         import traceback
         print(f"Error in get_dashboard_tasks: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_dashboard_tasks(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def get_project_backlog(project_id, decoded_payload=None):
     try:
         # 1. Find the backlog status and todo status
@@ -1152,7 +1125,4 @@ def get_project_backlog(project_id, decoded_payload=None):
         import traceback
         print(f"Error in get_project_backlog: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_project_backlog(project_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

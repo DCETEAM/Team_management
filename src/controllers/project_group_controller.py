@@ -2,11 +2,9 @@ from flask import jsonify, request
 from src import db
 from src.models.project_group_model import ProjectGroup
 from src.models.project_model import Project
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
 from src.utils.request_client_time import stamp_model_times, touch_updated_at, require_client_now
 
-@db_retry(max_retries=3)
 def create_project_group(decoded_payload=None):
     try:
         data = request.get_json()
@@ -36,16 +34,11 @@ def create_project_group(decoded_payload=None):
         return jsonify({"msg": "Project group created successfully", "status": 1, "id": new_group.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_project_group(decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "name" in str(e):
-                    return jsonify({"msg": "Project group name already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "name" in str(e):
+                return jsonify({"msg": "Project group name already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_project_groups(decoded_payload=None):
     try:
         groups = ProjectGroup.query.all()
@@ -60,12 +53,8 @@ def get_all_project_groups(decoded_payload=None):
             })
         return jsonify({"groups": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_project_groups(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_project_group_by_id(group_id, decoded_payload=None):
     try:
         group = ProjectGroup.query.get(group_id)
@@ -89,12 +78,8 @@ def get_project_group_by_id(group_id, decoded_payload=None):
         }
         return jsonify({"group": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_project_group_by_id(group_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_project_group(group_id, decoded_payload=None):
     try:
         group = ProjectGroup.query.get(group_id)
@@ -123,16 +108,11 @@ def update_project_group(group_id, decoded_payload=None):
         return jsonify({"msg": "Project group updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_project_group(group_id, decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "name" in str(e):
-                    return jsonify({"msg": "Project group name already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "name" in str(e):
+                return jsonify({"msg": "Project group name already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_project_group(group_id, decoded_payload=None):
     try:
         group = ProjectGroup.query.get(group_id)
@@ -149,12 +129,8 @@ def delete_project_group(group_id, decoded_payload=None):
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting project group: {str(e)}")
-        if "MySQL server has gone away" in str(e):
-            return delete_project_group(group_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "msg": "Failed to delete project group. Please try again later.", "status": 0}), 500
+        return jsonify({"success": 0, "msg": "Failed to delete project group. Please try again later.", "status": 0}), 500
 
-@db_retry(max_retries=3)
 def add_projects_to_group(group_id, decoded_payload=None):
     try:
         group = ProjectGroup.query.get(group_id)
@@ -182,7 +158,4 @@ def add_projects_to_group(group_id, decoded_payload=None):
         return jsonify({"msg": "Projects added to group successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return add_projects_to_group(group_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

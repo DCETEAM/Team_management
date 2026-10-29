@@ -6,9 +6,7 @@ from src.models.user_model import User
 from src.utils.date_utils import parse_date
 from src.utils.image_utils import save_image, delete_image
 from src.utils.avatar_utils import apply_avatar_update
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def create_worker(decoded_payload=None):
     try:
         data = request.get_json()
@@ -134,12 +132,8 @@ def create_worker(decoded_payload=None):
         return jsonify({"msg": "Worker created successfully", "status": 1}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_worker(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_workers(decoded_payload=None):
     try:
         workers = Worker.query.all()
@@ -179,12 +173,8 @@ def get_all_workers(decoded_payload=None):
             })
         return jsonify({"workers": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_workers(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_worker_by_id(worker_id, decoded_payload=None):
     try:
         worker = Worker.query.get(worker_id)
@@ -225,12 +215,8 @@ def get_worker_by_id(worker_id, decoded_payload=None):
         }
         return jsonify({"worker": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_worker_by_id(worker_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_worker(worker_id, decoded_payload=None):
     try:
         worker = Worker.query.get(worker_id)
@@ -328,16 +314,11 @@ def update_worker(worker_id, decoded_payload=None):
         return jsonify({"message": "Worker updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_worker(worker_id, decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "email" in str(e):
-                    return jsonify({"msg": "Email already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "email" in str(e):
+                return jsonify({"msg": "Email already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_worker(worker_id, decoded_payload=None):
     try:
         worker = Worker.query.get(worker_id)
@@ -390,7 +371,4 @@ def delete_worker(worker_id, decoded_payload=None):
         return jsonify({"message": "Worker deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_worker(worker_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

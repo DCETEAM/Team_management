@@ -12,6 +12,12 @@ class Config:
     JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
     SQLALCHEMY_DATABASE_URI = os.getenv("DATABASE_URI")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        "pool_pre_ping": True,
+        "pool_recycle": int(os.getenv("SQLALCHEMY_POOL_RECYCLE", "280")),
+        "pool_size": int(os.getenv("SQLALCHEMY_POOL_SIZE", "10")),
+        "max_overflow": int(os.getenv("SQLALCHEMY_MAX_OVERFLOW", "20")),
+    }
     UPLOAD_FOLDER = "src/assets/"
     SERVE_STATIC_FOLDER = os.path.abspath("src/assets")
     ALGORITHM = "HS256"

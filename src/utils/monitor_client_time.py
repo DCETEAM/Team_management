@@ -39,6 +39,22 @@ def parse_client_local_date(val):
     return dt.date() if dt else None
 
 
+def get_client_time_raw_from_request(request):
+    """Exact timestamp string from the client (header or JSON), no parsing."""
+    if request is None:
+        return None
+    header_val = request.headers.get(CLIENT_TIME_HEADER)
+    if header_val and str(header_val).strip():
+        return str(header_val).strip()
+    data = request.get_json(silent=True) if request else None
+    if isinstance(data, dict):
+        for key in ("client_time", "received_at", "occurred_at"):
+            val = data.get(key)
+            if val is not None and str(val).strip():
+                return str(val).strip()
+    return None
+
+
 def get_client_now_from_request(request):
     header_val = request.headers.get(CLIENT_TIME_HEADER)
     if header_val:

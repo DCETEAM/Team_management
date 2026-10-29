@@ -1,9 +1,7 @@
 from flask import jsonify, request
 from src import db
 from src.models.task_status_model import TaskStatus
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def create_task_status(decoded_payload=None):
     try:
         data = request.get_json()
@@ -44,16 +42,11 @@ def create_task_status(decoded_payload=None):
         return jsonify({"msg": "Task status created successfully", "status": 1, "id": new_status.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_task_status(decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "name" in str(e):
-                    return jsonify({"msg": "Status name already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "name" in str(e):
+                return jsonify({"msg": "Status name already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_task_statuses(decoded_payload=None):
     try:
         statuses = TaskStatus.query.order_by(TaskStatus.sort_order.asc()).all()
@@ -74,12 +67,8 @@ def get_all_task_statuses(decoded_payload=None):
             })
         return jsonify({"task_statuses": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_task_statuses(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_task_status_by_id(status_id, decoded_payload=None):
     try:
         status = TaskStatus.query.get(status_id)
@@ -101,12 +90,8 @@ def get_task_status_by_id(status_id, decoded_payload=None):
         }
         return jsonify({"task_status": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_task_status_by_id(status_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_task_status(status_id, decoded_payload=None):
     try:
         status = TaskStatus.query.get(status_id)
@@ -142,16 +127,11 @@ def update_task_status(status_id, decoded_payload=None):
         return jsonify({"message": "Task status updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_task_status(status_id, decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "name" in str(e):
-                    return jsonify({"msg": "Status name already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "name" in str(e):
+                return jsonify({"msg": "Status name already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def check_task_status_flag(decoded_payload=None):
     try:
         data = request.get_json()
@@ -181,12 +161,8 @@ def check_task_status_flag(decoded_payload=None):
         
         return jsonify({"msg": "No other status has this flag marked", "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return check_task_status_flag(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_task_status(status_id, decoded_payload=None):
     try:
         status = TaskStatus.query.get(status_id)
@@ -198,12 +174,8 @@ def delete_task_status(status_id, decoded_payload=None):
         return jsonify({"message": "Task status deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_task_status(status_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def reorder_task_statuses(decoded_payload=None):
     try:
         data = request.get_json()
@@ -223,7 +195,4 @@ def reorder_task_statuses(decoded_payload=None):
         return jsonify({"message": "Task statuses reordered successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return reorder_task_statuses(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

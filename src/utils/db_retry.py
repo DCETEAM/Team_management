@@ -1,78 +1,46 @@
 import logging
-import time
 from functools import wraps
-from sqlalchemy.exc import SQLAlchemyError, OperationalError
+
+from flask import jsonify
+from sqlalchemy import text
+from sqlalchemy.exc import OperationalError
+
 from src import db
 
 
-def is_mysql_gone_away_error(exception):
-
-    if isinstance(exception, OperationalError):
-        error_msg = str(exception).lower()
-        gone_away_keywords = [
-            "mysql server has gone away",
-            "lost connection to mysql server",
-            "server shutdown",
-            "can't connect to mysql server"
-        ]
-        return any(keyword in error_msg for keyword in gone_away_keywords)
-    return False
-
-
-def db_retry(max_retries=3, initial_backoff=1.0):
-
-    def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            retries = 0
-            while retries <= max_retries:
-                try:
-                    return func(*args, **kwargs)
-                except SQLAlchemyError as e:
-                    if is_mysql_gone_away_error(e):
-                        retries += 1
-                        if retries > max_retries:
-                            logging.error(f"Max retries ({max_retries}) reached for MySQL gone away error. Aborting.")
-                            raise
-                        
-                        try:
-                            db.session.rollback()
-                            db.session.remove()
-                            logging.warning(f"MySQL connection lost. Retrying {retries}/{max_retries}...")
-                        except Exception as rollback_err:
-                            logging.warning(f"Error during rollback: {rollback_err}")
-                        
-                        backoff_time = initial_backoff * (2 ** (retries - 1))
-                        time.sleep(backoff_time)
-                    else:
-                        raise
-        return wrapper
-    return decorator
+def ensure_db_connection():
+    """Ensure database connection is alive, else reconnect."""
+    try:
+        db.session.execute(text("SELECT 1"))
+    except OperationalError as e:
+        if "MySQL server has gone away" in str(e) or "Lost connection" in str(e):
+            db.session.rollback()
+            db.engine.dispose()
+            db.session.remove()
+            logging.warning("Database connection lost, reconnected.")
+        else:
+            raise e
 
 
-def db_retry_context(func, max_retries=3, initial_backoff=1.0):
+def with_db_reconnect(func):
+    """Decorator to ensure DB connection before running any API route handler."""
+
     @wraps(func)
     def wrapper(*args, **kwargs):
-        retries = 0
-        while retries <= max_retries:
-            try:
-                return func(*args, **kwargs)
-            except SQLAlchemyError as e:
-                if is_mysql_gone_away_error(e):
-                    retries += 1
-                    if retries > max_retries:
-                        logging.error(f"Max retries ({max_retries}) reached for MySQL gone away error. Aborting.")
-                        raise
-                        
-                    try:
-                        db.session.rollback()
-                        db.session.remove()
-                        logging.warning(f"MySQL connection lost. Retrying {retries}/{max_retries}...")
-                    except Exception as rollback_err:
-                        logging.warning(f"Error during rollback: {rollback_err}")
-                        
-                    backoff_time = initial_backoff * (2 ** (retries - 1))
-                    time.sleep(backoff_time)
-                else:
-                    raise
+        try:
+            ensure_db_connection()
+            return func(*args, **kwargs)
+        except OperationalError as e:
+            return (
+                jsonify(
+                    {
+                        "success": 0,
+                        "error": "Database connection error: " + str(e),
+                    }
+                ),
+                500,
+            )
+        except Exception as e:
+            return jsonify({"success": 0, "error": str(e)}), 500
+
     return wrapper

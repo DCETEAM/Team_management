@@ -2,7 +2,6 @@ from flask import jsonify, request
 from src import db
 from src.models.sprint_model import Sprint
 from src.models.project_model import Project
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
 from src.utils.project_permissions import (
     can_manage_project_sprints,
@@ -10,7 +9,6 @@ from src.utils.project_permissions import (
 )
 
 
-@db_retry(max_retries=3)
 def create_sprint(decoded_payload=None):
     try:
         data = request.get_json()
@@ -66,12 +64,8 @@ def create_sprint(decoded_payload=None):
         return jsonify({"msg": "Sprint created successfully", "status": 1, "id": new_sprint.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_sprint(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_sprints(decoded_payload=None):
     try:
         from src.models.task_model import Task
@@ -140,12 +134,8 @@ def get_all_sprints(decoded_payload=None):
             result.append(sprint_data)
         return jsonify({"sprints": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_sprints(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_sprint_by_id(sprint_id, decoded_payload=None):
     try:
         sprint = Sprint.query.get(sprint_id)
@@ -190,12 +180,8 @@ def get_sprint_by_id(sprint_id, decoded_payload=None):
             })
         return jsonify({"sprint": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_sprint_by_id(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_sprint(sprint_id, decoded_payload=None):
     try:
         sprint = Sprint.query.get(sprint_id)
@@ -238,12 +224,8 @@ def update_sprint(sprint_id, decoded_payload=None):
         return jsonify({"message": "Sprint updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_sprint(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_sprint(sprint_id, decoded_payload=None):
     try:
         from src.models.task_model import Task
@@ -273,12 +255,8 @@ def delete_sprint(sprint_id, decoded_payload=None):
         return jsonify({"message": "Sprint deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_sprint(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def start_sprint(sprint_id, decoded_payload=None):
     try:
         sprint = Sprint.query.get(sprint_id)
@@ -303,12 +281,8 @@ def start_sprint(sprint_id, decoded_payload=None):
         return jsonify({"message": "Sprint started successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return start_sprint(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def end_sprint(sprint_id, decoded_payload=None):
     try:
         sprint = Sprint.query.get(sprint_id)
@@ -328,12 +302,8 @@ def end_sprint(sprint_id, decoded_payload=None):
         return jsonify({"message": "Sprint ended successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return end_sprint(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def start_sprint_with_move(sprint_id, decoded_payload=None):
     try:
         from src.models.task_model import Task
@@ -376,7 +346,4 @@ def start_sprint_with_move(sprint_id, decoded_payload=None):
         return jsonify({"message": "Sprint started successfully, tasks moved", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return start_sprint_with_move(sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

@@ -12,10 +12,8 @@ from src.models.admin_model import Admin
 from src.models.worker_model import Worker
 from src.utils.jwt import decode_jwt_token, generate_jwt_token
 from src.utils.image_utils import save_image
-from src.utils.db_retry import db_retry
 from src.controllers.email_controller import send_otp_email
 
-@db_retry(max_retries=3)
 def register_controller():
     try:
         data = request.get_json()
@@ -85,13 +83,9 @@ def register_controller():
 
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return register_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def login_controller():
     try:
         data = request.get_json()
@@ -152,13 +146,9 @@ def login_controller():
 
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return login_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def google_login_controller():
     try:
         data = request.get_json()
@@ -214,13 +204,9 @@ def google_login_controller():
 
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return google_login_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def microsoft_login_controller():
     try:
         data = request.get_json()
@@ -277,13 +263,9 @@ def microsoft_login_controller():
 
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return microsoft_login_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def token_refresh_controller():
     try:
         refresh_token = request.headers.get("Authorization")
@@ -316,10 +298,7 @@ def token_refresh_controller():
         }), 200
         
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return token_refresh_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
 # OTP Storage helpers
@@ -342,7 +321,6 @@ def _generate_4_digit_otp():
     return str(random.randint(1000, 9999))
 
 
-@db_retry(max_retries=3)
 def forgot_password_controller():
     try:
         data = request.get_json()
@@ -393,13 +371,9 @@ def forgot_password_controller():
         
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return forgot_password_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def verify_otp_controller():
     try:
         data = request.get_json()
@@ -451,13 +425,9 @@ def verify_otp_controller():
         
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return verify_otp_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def reset_password_controller():
     try:
         data = request.get_json()
@@ -501,7 +471,4 @@ def reset_password_controller():
         
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return reset_password_controller()
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

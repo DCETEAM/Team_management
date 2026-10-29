@@ -1,13 +1,15 @@
-from flask import jsonify
+from flask import jsonify, request
 from src import db
 from src.models.task_status_history_model import TaskStatusHistory
 from src.models.sprint_model import Sprint
 from src.utils.date_utils import safe_isoformat
 from src.utils.project_permissions import is_admin_role
-from src.utils.db_retry import db_retry
+from src.utils.monitor_client_time import get_client_time_raw_from_request
 
 
-def record_task_status_change(task, old_status_id, new_status_id, old_status, new_status, decoded_payload):
+def record_task_status_change(
+    task, old_status_id, new_status_id, old_status, new_status, decoded_payload
+):
     if old_status_id == new_status_id:
         return
 
@@ -17,6 +19,8 @@ def record_task_status_change(task, old_status_id, new_status_id, old_status, ne
     from src.utils.role_utils import get_person_details
 
     person = get_person_details(role, role_id) if role and role_id else None
+
+    client_when = get_client_time_raw_from_request(request)
 
     entry = TaskStatusHistory(
         task_id=task.id,
@@ -32,11 +36,11 @@ def record_task_status_change(task, old_status_id, new_status_id, old_status, ne
         changed_by_first_name=person.get("first_name") if person else None,
         changed_by_last_name=person.get("last_name") if person else None,
         changed_by_email=person.get("email") if person else None,
+        changed_at=client_when,
     )
     db.session.add(entry)
 
 
-@db_retry(max_retries=3)
 def get_sprint_status_history(sprint_id, decoded_payload=None):
     try:
         role = decoded_payload.get("role") if decoded_payload else None
@@ -55,12 +59,13 @@ def get_sprint_status_history(sprint_id, decoded_payload=None):
 
         rows = (
             TaskStatusHistory.query.filter_by(sprint_id=sprint_id)
-            .order_by(TaskStatusHistory.created_at.desc())
+            .order_by(TaskStatusHistory.id.desc())
             .all()
         )
 
         result = []
         for row in rows:
+            when = row.changed_at if row.changed_at else safe_isoformat(row.created_at)
             result.append(
                 {
                     "id": row.id,
@@ -79,12 +84,11 @@ def get_sprint_status_history(sprint_id, decoded_payload=None):
                         "last_name": row.changed_by_last_name,
                         "email": row.changed_by_email,
                     },
-                    "created_at": safe_isoformat(row.created_at),
+                    "changed_at": when,
+                    "created_at": when,
                 }
             )
 
         return jsonify({"history": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_sprint_status_history(sprint_id, decoded_payload)
         return jsonify({"success": 0, "error": str(e)}), 500

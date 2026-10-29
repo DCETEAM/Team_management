@@ -90,10 +90,21 @@ def create_app():
 
         init_routes(app)
         logging.info("Routes Initialized Successfully.")
+
     except Exception as e:
         logging.error(f"Routes Initialize Failed ,{e}")
 
     with app.app_context():
         db.create_all()
+
+    @app.teardown_request
+    def _teardown_db_session(exc):
+        try:
+            if exc is not None:
+                db.session.rollback()
+        except Exception:
+            pass
+        finally:
+            db.session.remove()
 
     return app

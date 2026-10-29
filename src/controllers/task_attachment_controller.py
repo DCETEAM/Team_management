@@ -6,7 +6,6 @@ from werkzeug.utils import safe_join
 from src import db
 from src.models.task_attachment_model import TaskAttachment
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from src.utils.image_utils import save_attachment, delete_image
 from src.utils.date_utils import safe_isoformat
 
@@ -19,7 +18,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Maximum file size: 10MB
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB in bytes
 
-@db_retry(max_retries=3)
 def create_attachment(decoded_payload=None):
     try:
         file_url = None
@@ -98,12 +96,8 @@ def create_attachment(decoded_payload=None):
         return jsonify({"msg": "Attachment created successfully", "status": 1, "attachment_id": new_attachment.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_attachment(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_attachments(decoded_payload=None):
     try:
         attachments = TaskAttachment.query.all()
@@ -126,12 +120,8 @@ def get_all_attachments(decoded_payload=None):
             })
         return jsonify({"attachments": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_attachments(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_attachments_by_task_id(task_id, decoded_payload=None):
     try:
         attachments = TaskAttachment.query.filter_by(task_id=task_id).all()
@@ -154,12 +144,8 @@ def get_attachments_by_task_id(task_id, decoded_payload=None):
             })
         return jsonify({"attachments": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_attachments_by_task_id(task_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_attachment_by_id(attachment_id, decoded_payload=None):
     try:
         attachment = TaskAttachment.query.get(attachment_id)
@@ -183,10 +169,7 @@ def get_attachment_by_id(attachment_id, decoded_payload=None):
         }
         return jsonify({"attachment": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_attachment_by_id(attachment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 def download_file(filename, decoded_payload=None):
     try:
@@ -213,7 +196,6 @@ def download_file(filename, decoded_payload=None):
     except Exception as e:
         return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_attachment(attachment_id, decoded_payload=None):
     try:
         attachment = TaskAttachment.query.get(attachment_id)
@@ -229,12 +211,8 @@ def update_attachment(attachment_id, decoded_payload=None):
         return jsonify({"msg": "Attachment updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_attachment(attachment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_attachment(attachment_id, decoded_payload=None):
     try:
         attachment = TaskAttachment.query.get(attachment_id)
@@ -249,7 +227,4 @@ def delete_attachment(attachment_id, decoded_payload=None):
         return jsonify({"msg": "Attachment deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_attachment(attachment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

@@ -16,7 +16,6 @@ from src.models.monitor_models import (
     DailyWorkSummary,
     _hash_token,
 )
-from src.utils.db_retry import db_retry
 from src.utils.monitor_auth import MONITORED_ROLES, MANAGER_ROLES
 from src.utils.monitor_settings import (
     IDLE_THRESHOLD_SECONDS,
@@ -144,7 +143,6 @@ def _upsert_daily_summary(user_id, work_date, deltas, generated_at):
     row.generated_at = generated_at
 
 
-@db_retry(max_retries=3)
 def get_monitor_policy(decoded_payload=None):
     return jsonify(
         {
@@ -161,7 +159,6 @@ def get_monitor_policy(decoded_payload=None):
     ), 200
 
 
-@db_retry(max_retries=3)
 def create_pairing_code(decoded_payload=None):
     user_id = decoded_payload.get("user_id")
     user = User.query.get(user_id)
@@ -185,7 +182,6 @@ def create_pairing_code(decoded_payload=None):
     ), 200
 
 
-@db_retry(max_retries=3)
 def register_device():
     data = request.get_json() or {}
     pairing_code = _normalize_pairing_code(data.get("pairing_code"))
@@ -263,7 +259,6 @@ def register_device():
     ), 200
 
 
-@db_retry(max_retries=3)
 def start_session():
     device = g.monitor_device
     user = g.monitor_user
@@ -319,7 +314,6 @@ def _serialize_session(sess):
     }
 
 
-@db_retry(max_retries=3)
 def session_heartbeat(session_id):
     device = g.monitor_device
     user = g.monitor_user
@@ -372,7 +366,6 @@ def session_heartbeat(session_id):
     ), 200
 
 
-@db_retry(max_retries=3)
 def session_events(session_id):
     device = g.monitor_device
     user = g.monitor_user
@@ -425,12 +418,10 @@ def session_events(session_id):
     return jsonify({"status": 1, "created": created}), 200
 
 
-@db_retry(max_retries=3)
 def session_break_start(session_id):
     return _set_session_status(session_id, "break")
 
 
-@db_retry(max_retries=3)
 def session_break_end(session_id):
     return _set_session_status(session_id, "active")
 
@@ -451,7 +442,6 @@ def _set_session_status(session_id, status):
     return jsonify({"status": 1, "session": _serialize_session(sess)}), 200
 
 
-@db_retry(max_retries=3)
 def end_session(session_id):
     device = g.monitor_device
     user = g.monitor_user
@@ -469,7 +459,6 @@ def end_session(session_id):
     return jsonify({"status": 1, "session": _serialize_session(sess)}), 200
 
 
-@db_retry(max_retries=3)
 def me_today(decoded_payload=None):
     user_id = decoded_payload.get("user_id")
     today, err = _require_client_work_date()
@@ -602,7 +591,6 @@ def _live_state_for_session(sess, device, reference_now):
     return sess.status or "unknown"
 
 
-@db_retry(max_retries=3)
 def manager_live(decoded_payload=None):
     ref_now, err = _require_client_now()
     if err:
@@ -641,7 +629,6 @@ def manager_live(decoded_payload=None):
     return jsonify({"status": 1, "employees": results, "as_of": _iso(ref_now)}), 200
 
 
-@db_retry(max_retries=3)
 def manager_timeline(decoded_payload=None, employee_id=None):
     try:
         employee_id = int(employee_id)
@@ -687,7 +674,6 @@ def manager_timeline(decoded_payload=None, employee_id=None):
     return jsonify({"status": 1, "user_id": employee_id, "date": day, "timeline": out}), 200
 
 
-@db_retry(max_retries=3)
 def manager_daily_report(decoded_payload=None):
     day = request.args.get("date")
     user_filter = request.args.get("user_id")
@@ -725,7 +711,6 @@ def manager_daily_report(decoded_payload=None):
     ), 200
 
 
-@db_retry(max_retries=3)
 def revoke_my_devices(decoded_payload=None):
     """Remove active pairings for this user (logout / fresh login). Ends open sessions."""
     user_id = decoded_payload.get("user_id")
@@ -770,7 +755,6 @@ def _users_for_analytics(viewer_payload):
     return q.order_by(User.id.asc()).all()
 
 
-@db_retry(max_retries=3)
 def analytics_overview(decoded_payload=None):
     day = request.args.get("date")
     if not day:
@@ -831,7 +815,6 @@ def analytics_overview(decoded_payload=None):
     ), 200
 
 
-@db_retry(max_retries=3)
 def analytics_user_insight(decoded_payload=None, user_id=None):
     try:
         user_id = int(user_id)

@@ -22,6 +22,8 @@ class TaskStatusHistory(db.Model):
     changed_by_last_name = db.Column(db.String(120), nullable=True)
     changed_by_email = db.Column(db.String(255), nullable=True)
 
+    # Client device clock as sent (display as-is; no server timezone math)
+    changed_at = db.Column(db.String(40), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
 
     task = db.relationship("Task", backref="status_history_entries")

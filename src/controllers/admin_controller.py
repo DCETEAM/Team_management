@@ -7,9 +7,7 @@ from src.models.user_model import User
 from src.utils.date_utils import parse_date
 from src.utils.image_utils import save_image, delete_image
 from src.utils.avatar_utils import apply_avatar_update
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def create_admin(decoded_payload=None):
     try:
         data = request.get_json()
@@ -124,12 +122,8 @@ def create_admin(decoded_payload=None):
         return jsonify({"msg": "Admin created successfully", "status": 1}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_admin(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_admins(decoded_payload=None):
     try:
         admins = Admin.query.all()
@@ -166,12 +160,8 @@ def get_all_admins(decoded_payload=None):
             })
         return jsonify({"admins": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_admins(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_admin_by_id(admin_id, decoded_payload=None):
     try:
         admin = db.session.get(Admin, admin_id)
@@ -209,12 +199,8 @@ def get_admin_by_id(admin_id, decoded_payload=None):
         }
         return jsonify({"admin": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_admin_by_id(admin_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_admin(admin_id, decoded_payload=None):
     try:
         admin = db.session.get(Admin, admin_id)
@@ -307,16 +293,11 @@ def update_admin(admin_id, decoded_payload=None):
         return jsonify({"message": "Admin updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_admin(admin_id, decoded_payload)
-        else:
-            # Check for duplicate entry error
-            if "Duplicate entry" in str(e):
-                if "email" in str(e):
-                    return jsonify({"msg": "Email already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "email" in str(e):
+                return jsonify({"msg": "Email already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_admin(admin_id, decoded_payload=None):
     try:
         admin = Admin.query.get(admin_id)
@@ -370,7 +351,4 @@ def delete_admin(admin_id, decoded_payload=None):
         return jsonify({"message": "Admin deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_admin(admin_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

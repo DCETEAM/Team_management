@@ -2,9 +2,7 @@ import datetime
 from flask import jsonify, request
 from src import db
 from src.models import AttendanceSetting
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def get_attendance_settings(decoded_payload=None):
     try:
         # Get the active attendance setting
@@ -38,7 +36,6 @@ def get_attendance_settings(decoded_payload=None):
     except Exception as e:
         return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def save_attendance_settings(decoded_payload=None):
     try:
         data = request.get_json()

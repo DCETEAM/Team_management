@@ -4,10 +4,8 @@ import json
 from src import db
 from src.models.activity_log_model import ActivityLog
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
 
-@db_retry(max_retries=3)
 def create_activity_log(role_id, role, table_name, record_id, action, old_data=None, new_data=None, remark=None):
     """
     Helper function to create activity logs from other controllers.
@@ -37,13 +35,9 @@ def create_activity_log(role_id, role, table_name, record_id, action, old_data=N
         return True
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_activity_log(role_id, role, table_name, record_id, action, old_data, new_data, remark)
-        else:
-            print(f"Error creating activity log: {e}")
-            return False
+        print(f"Error creating activity log: {e}")
+        return False
 
-@db_retry(max_retries=3)
 def get_all_activity_logs(decoded_payload=None):
     try:
         logs = ActivityLog.query.order_by(ActivityLog.created_at.desc()).all()
@@ -67,12 +61,8 @@ def get_all_activity_logs(decoded_payload=None):
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_activity_logs(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_logs_by_role(role_id, role):
     try:
         logs = ActivityLog.query.filter_by(role_id=role_id, role=role).order_by(ActivityLog.created_at.desc()).all()
@@ -90,16 +80,12 @@ def get_logs_by_role(role_id, role):
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_logs_by_role(role_id, role)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 # Backward compatibility
 def get_logs_by_user(user_id, decoded_payload=None):
     return get_logs_by_role(None, None)
 
-@db_retry(max_retries=3)
 def get_logs_by_table(table_name, decoded_payload=None):
     try:
         logs = ActivityLog.query.filter_by(table_name=table_name).order_by(ActivityLog.created_at.desc()).all()
@@ -117,7 +103,4 @@ def get_logs_by_table(table_name, decoded_payload=None):
             })
         return jsonify({"logs": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_logs_by_table(table_name, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

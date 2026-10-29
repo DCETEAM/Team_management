@@ -3,7 +3,6 @@ import datetime
 from src import db
 from src.models.leave_request_model import LeaveRequest, LeaveRequestAudit
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from werkzeug.utils import secure_filename
 import os
 from src.utils.date_utils import safe_isoformat
@@ -23,7 +22,6 @@ def create_audit_log(leave_id, action, old_status, new_status, role_id, role, co
     db.session.add(audit)
 
 
-@db_retry(max_retries=3)
 def create_leave_request(decoded_payload):
     try:
         data = request.get_json()
@@ -106,13 +104,9 @@ def create_leave_request(decoded_payload):
         return jsonify({"msg": response_msg, "status": 1, "leave_id": new_leave.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_leave_request(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def get_all_leave_requests(decoded_payload):
     try:
         user_role = decoded_payload.get("role")
@@ -161,13 +155,9 @@ def get_all_leave_requests(decoded_payload):
             })
         return jsonify({"leaves": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_leave_requests(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def get_my_leave_requests(decoded_payload):
     try:
         role_id = decoded_payload.get("role_id")
@@ -197,13 +187,9 @@ def get_my_leave_requests(decoded_payload):
             })
         return jsonify({"leaves": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_my_leave_requests(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def get_leave_request_by_id(leave_id, decoded_payload):
     try:
         leave = LeaveRequest.query.get(leave_id)
@@ -272,13 +258,9 @@ def get_leave_request_by_id(leave_id, decoded_payload):
         
         return jsonify({"leave": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_leave_request_by_id(leave_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def review_leave_request(leave_id, decoded_payload):
     try:
         leave = LeaveRequest.query.get(leave_id)
@@ -334,13 +316,9 @@ def review_leave_request(leave_id, decoded_payload):
         print(f"Error reviewing leave request: {str(e)}")
         print(traceback.format_exc())
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return review_leave_request(leave_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def cancel_leave_request(leave_id, decoded_payload):
     try:
         leave = LeaveRequest.query.get(leave_id)
@@ -373,13 +351,9 @@ def cancel_leave_request(leave_id, decoded_payload):
         return jsonify({"msg": "Leave request cancelled successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return cancel_leave_request(leave_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def delete_leave_request(leave_id, decoded_payload):
     try:
         leave = LeaveRequest.query.get(leave_id)
@@ -409,13 +383,9 @@ def delete_leave_request(leave_id, decoded_payload):
         return jsonify({"msg": "Leave request deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_leave_request(leave_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def upload_attachment(decoded_payload):
     try:
         if 'file' not in request.files:

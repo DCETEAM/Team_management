@@ -3,9 +3,7 @@ import datetime
 from src import db
 from src.models.task_comment_model import TaskComment
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def create_comment(decoded_payload=None):
     try:
         data = request.get_json()
@@ -33,12 +31,8 @@ def create_comment(decoded_payload=None):
         return jsonify({"msg": "Comment added successfully", "status": 1, "id": new_comment.id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_comment(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_comments_by_task(task_id, decoded_payload=None):
     try:
         comments = TaskComment.query.filter_by(task_id=task_id).order_by(TaskComment.created_at.desc()).all()
@@ -57,12 +51,8 @@ def get_comments_by_task(task_id, decoded_payload=None):
             })
         return jsonify({"comments": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_comments_by_task(task_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_comment_by_id(comment_id, decoded_payload=None):
     try:
         c = TaskComment.query.get(comment_id)
@@ -82,12 +72,8 @@ def get_comment_by_id(comment_id, decoded_payload=None):
         }
         return jsonify({"comment": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_comment_by_id(comment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_comment(comment_id, decoded_payload=None):
     try:
         c = TaskComment.query.get(comment_id)
@@ -105,12 +91,8 @@ def update_comment(comment_id, decoded_payload=None):
         return jsonify({"message": "Comment updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_comment(comment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_comment(comment_id, decoded_payload=None):
     try:
         c = TaskComment.query.get(comment_id)
@@ -122,7 +104,4 @@ def delete_comment(comment_id, decoded_payload=None):
         return jsonify({"message": "Comment deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_comment(comment_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

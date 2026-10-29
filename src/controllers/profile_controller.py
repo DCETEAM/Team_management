@@ -6,7 +6,6 @@ from src.models.worker_model import Worker
 from src.models.project_model import Project
 from src.models.project_allocation_model import ProjectAllocation
 from src.utils.jwt import decode_jwt_token
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.profile_completion import compute_profile_completion
 from src.utils.role_utils import get_person_details
@@ -187,7 +186,6 @@ def _get_allocations_for_user(role, role_id):
     return results
 
 
-@db_retry(max_retries=3)
 def get_my_profile(decoded_payload=None):
     try:
         user = _get_user_from_payload(decoded_payload)
@@ -210,8 +208,6 @@ def get_my_profile(decoded_payload=None):
             }
         ), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_my_profile(decoded_payload)
         return jsonify({"success": 0, "error": str(e)}), 500
 
 
@@ -291,7 +287,6 @@ def _apply_profile_update(person, kind, user, data):
             person.employment_type = data["employment_type"] or None
 
 
-@db_retry(max_retries=3)
 def update_my_profile(decoded_payload=None):
     try:
         user = _get_user_from_payload(decoded_payload)
@@ -315,14 +310,11 @@ def update_my_profile(decoded_payload=None):
         ), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_my_profile(decoded_payload)
         if isinstance(e, ValueError):
             return jsonify({"msg": str(e), "status": 0}), 409
         return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def complete_profile_onboarding(decoded_payload=None):
     try:
         user = _get_user_from_payload(decoded_payload)
@@ -340,12 +332,9 @@ def complete_profile_onboarding(decoded_payload=None):
         ), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return complete_profile_onboarding(decoded_payload)
         return jsonify({"success": 0, "error": str(e)}), 500
 
 
-@db_retry(max_retries=3)
 def skip_profile_onboarding(decoded_payload=None):
     try:
         user = _get_user_from_payload(decoded_payload)
@@ -363,6 +352,4 @@ def skip_profile_onboarding(decoded_payload=None):
         ), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return skip_profile_onboarding(decoded_payload)
         return jsonify({"success": 0, "error": str(e)}), 500

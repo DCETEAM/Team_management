@@ -1,9 +1,7 @@
 from flask import jsonify, request
 from src import db
 from src.models.attendance_status_model import AttendanceStatus
-from src.utils.db_retry import db_retry
 
-@db_retry(max_retries=3)
 def create_attendance_status(decoded_payload=None):
     try:
         data = request.get_json()
@@ -36,17 +34,13 @@ def create_attendance_status(decoded_payload=None):
         return jsonify({"msg": "Attendance status created successfully", "status": 1, "id": new_status.attendance_status_id}), 201
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return create_attendance_status(decoded_payload)
-        else:
-            if "Duplicate entry" in str(e):
-                if "status_name" in str(e):
-                    return jsonify({"msg": "Status name already exists", "status": 0}), 409
-                if "status_code" in str(e):
-                    return jsonify({"msg": "Status code already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "status_name" in str(e):
+                return jsonify({"msg": "Status name already exists", "status": 0}), 409
+            if "status_code" in str(e):
+                return jsonify({"msg": "Status code already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_all_attendance_statuses(decoded_payload=None):
     try:
         statuses = AttendanceStatus.query.all()
@@ -64,12 +58,8 @@ def get_all_attendance_statuses(decoded_payload=None):
             })
         return jsonify({"attendance_statuses": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_all_attendance_statuses(decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def get_attendance_status_by_id(status_id, decoded_payload=None):
     try:
         status = AttendanceStatus.query.get(status_id)
@@ -88,12 +78,8 @@ def get_attendance_status_by_id(status_id, decoded_payload=None):
         }
         return jsonify({"attendance_status": result, "status": 1}), 200
     except Exception as e:
-        if "MySQL server has gone away" in str(e):
-            return get_attendance_status_by_id(status_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def update_attendance_status(status_id, decoded_payload=None):
     try:
         status = AttendanceStatus.query.get(status_id)
@@ -127,17 +113,13 @@ def update_attendance_status(status_id, decoded_payload=None):
         return jsonify({"message": "Attendance status updated successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return update_attendance_status(status_id, decoded_payload)
-        else:
-            if "Duplicate entry" in str(e):
-                if "status_name" in str(e):
-                    return jsonify({"msg": "Status name already exists", "status": 0}), 409
-                if "status_code" in str(e):
-                    return jsonify({"msg": "Status code already exists", "status": 0}), 409
-            return jsonify({"success": 0, "error": str(e)}), 500
+        if "Duplicate entry" in str(e):
+            if "status_name" in str(e):
+                return jsonify({"msg": "Status name already exists", "status": 0}), 409
+            if "status_code" in str(e):
+                return jsonify({"msg": "Status code already exists", "status": 0}), 409
+        return jsonify({"success": 0, "error": str(e)}), 500
 
-@db_retry(max_retries=3)
 def delete_attendance_status(status_id, decoded_payload=None):
     try:
         status = AttendanceStatus.query.get(status_id)
@@ -149,7 +131,4 @@ def delete_attendance_status(status_id, decoded_payload=None):
         return jsonify({"message": "Attendance status deleted successfully", "status": 1}), 200
     except Exception as e:
         db.session.rollback()
-        if "MySQL server has gone away" in str(e):
-            return delete_attendance_status(status_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500

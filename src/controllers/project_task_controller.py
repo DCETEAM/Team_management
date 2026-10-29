@@ -6,10 +6,8 @@ from src.models.task_model import Task
 from src.models.admin_model import Admin
 from src.models.worker_model import Worker
 from src.utils.role_utils import get_person_details
-from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
 
-@db_retry(max_retries=3)
 def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
     try:
         print("=== Starting get_project_task_data ===")
@@ -283,7 +281,4 @@ def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
         import traceback
         print(f"Error in get_project_task_data: {str(e)}")
         print(traceback.format_exc())
-        if "MySQL server has gone away" in str(e):
-            return get_project_task_data(project_id, sprint_id, decoded_payload)
-        else:
-            return jsonify({"success": 0, "error": str(e)}), 500
+        return jsonify({"success": 0, "error": str(e)}), 500
