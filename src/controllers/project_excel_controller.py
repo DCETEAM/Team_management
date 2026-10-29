@@ -6,6 +6,7 @@ from src.utils.role_utils import get_person_details
 from src.utils.image_utils import save_file
 from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
+from src.utils.request_client_time import stamp_model_times, touch_updated_at
 
 @db_retry(max_retries=3)
 def create_project_excel(decoded_payload=None):
@@ -33,6 +34,9 @@ def create_project_excel(decoded_payload=None):
             file_name=file_name,
             file_url=file_url
         )
+        err = stamp_model_times(new_excel, request, creating=True)
+        if err:
+            return err
         db.session.add(new_excel)
         db.session.commit()
         
@@ -125,6 +129,10 @@ def update_project_excel(excel_id, decoded_payload=None):
         data = request.get_json()
         
         excel.file_name = data.get("file_name", excel.file_name)
+
+        err = touch_updated_at(excel, request)
+        if err:
+            return err
         
         db.session.commit()
         return jsonify({"msg": "Excel file updated successfully", "status": 1}), 200

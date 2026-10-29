@@ -4,6 +4,7 @@ from src.models.project_group_model import ProjectGroup
 from src.models.project_model import Project
 from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
+from src.utils.request_client_time import stamp_model_times, touch_updated_at, require_client_now
 
 @db_retry(max_retries=3)
 def create_project_group(decoded_payload=None):
@@ -26,6 +27,9 @@ def create_project_group(decoded_payload=None):
             name=name,
             description=description.strip() if description else None
         )
+        err = stamp_model_times(new_group, request, creating=True)
+        if err:
+            return err
         db.session.add(new_group)
         db.session.commit()
         
@@ -110,6 +114,10 @@ def update_project_group(group_id, decoded_payload=None):
             
         if "description" in data:
             group.description = data["description"].strip() if data["description"] else None
+
+        err = touch_updated_at(group, request)
+        if err:
+            return err
             
         db.session.commit()
         return jsonify({"msg": "Project group updated successfully", "status": 1}), 200
@@ -158,11 +166,17 @@ def add_projects_to_group(group_id, decoded_payload=None):
         
         if not isinstance(project_ids, list):
             return jsonify({"msg": "project_ids must be a list", "status": 0}), 400
+
+        now, err = require_client_now(request)
+        if err:
+            return err
             
         for pid in project_ids:
             project = Project.query.get(pid)
             if project:
                 project.group_id = group_id
+                project.updated_at = now
+        group.updated_at = now
                 
         db.session.commit()
         return jsonify({"msg": "Projects added to group successfully", "status": 1}), 200

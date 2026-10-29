@@ -8,6 +8,7 @@ from src.utils.date_utils import parse_date, safe_isoformat
 from src.utils.image_utils import save_image
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
+from src.utils.request_client_time import stamp_model_times, touch_updated_at
 
 
 @db_retry(max_retries=3)
@@ -64,6 +65,9 @@ def create_project(decoded_payload=None):
             created_by_role_id=created_by_role_id,
             created_by_role=created_by_role
         )
+        err = stamp_model_times(new_project, request, creating=True)
+        if err:
+            return err
         db.session.add(new_project)
         db.session.commit()
         
@@ -77,6 +81,10 @@ def create_project(decoded_payload=None):
             allocated_by_role_id=created_by_role_id,
             allocated_by_role=created_by_role
         )
+        err = stamp_model_times(new_allocation, request, creating=True)
+        if err:
+            db.session.rollback()
+            return err
         db.session.add(new_allocation)
         db.session.commit()
         
@@ -266,6 +274,10 @@ def update_project(project_id, decoded_payload=None):
             project.team_managed = data["team_managed"]
         if "company_managed" in data:
             project.company_managed = data["company_managed"]
+
+        err = touch_updated_at(project, request)
+        if err:
+            return err
             
         db.session.commit()
         return jsonify({"message": "Project updated successfully", "status": 1}), 200

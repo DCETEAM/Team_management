@@ -7,6 +7,7 @@ from src.models.admin_model import Admin
 from src.utils.role_utils import get_person_details
 from src.utils.db_retry import db_retry
 from src.utils.date_utils import safe_isoformat
+from src.utils.request_client_time import stamp_model_times, touch_updated_at
 
 def sanitize_member(member):
     """Only keep necessary fields for storage: role_id, parent_id, client_contact, and basic identification."""
@@ -68,6 +69,9 @@ def create_allocation(decoded_payload=None):
             allocated_by_role_id=allocated_by_role_id,
             allocated_by_role=allocated_by_role
         )
+        err = stamp_model_times(new_allocation, request, creating=True)
+        if err:
+            return err
         db.session.add(new_allocation)
         db.session.commit()
         
@@ -257,6 +261,10 @@ def update_allocation(allocation_id, decoded_payload=None):
             alloc.end_date = datetime.datetime.strptime(data["end_date"], '%Y-%m-%d').date() if data["end_date"] else None
         if "remark" in data:
             alloc.remark = data["remark"].strip() if data["remark"] else None
+
+        err = touch_updated_at(alloc, request)
+        if err:
+            return err
             
         db.session.commit()
         return jsonify({"message": "Allocation updated successfully", "status": 1}), 200
@@ -283,6 +291,9 @@ def update_allocation_members(allocation_id, decoded_payload=None):
             # Sanitize members
             sanitized_members = [sanitize_member(m) for m in members]
             alloc.members = sanitized_members
+            err = touch_updated_at(alloc, request)
+            if err:
+                return err
             db.session.commit()
             return jsonify({"message": "Members updated successfully", "status": 1}), 200
         

@@ -22,6 +22,8 @@ from src.utils.monitor_settings import (
     IDLE_THRESHOLD_SECONDS,
     HEARTBEAT_STALE_SECONDS,
     HEARTBEAT_INTERVAL_SECONDS,
+    PAIRING_CODE_TTL_MINUTES,
+    PAIRING_CODE_GRACE_SECONDS,
 )
 from src.utils.monitor_client_time import (
     parse_client_datetime,
@@ -69,6 +71,28 @@ def _parse_dt(val):
 
 def _iso(dt):
     return format_dt_z(dt)
+
+
+def _normalize_pairing_code(raw):
+    if raw is None:
+        return ""
+    return str(raw).strip().replace(" ", "").replace("-", "").upper()
+
+
+def _pairing_expired(expires_at, now):
+    if not expires_at or not now:
+        return True
+    grace = datetime.timedelta(seconds=PAIRING_CODE_GRACE_SECONDS)
+    return expires_at + grace < now
+
+
+def _invalidate_user_pairing_codes(user_id, now):
+    (
+        MonitorPairingCode.query.filter(
+            MonitorPairingCode.user_id == user_id,
+            MonitorPairingCode.used_at.is_(None),
+        ).update({MonitorPairingCode.used_at: now}, synchronize_session=False)
+    )
 
 
 def _user_display(user):
@@ -146,8 +170,9 @@ def create_pairing_code(decoded_payload=None):
     now, err = _require_client_now()
     if err:
         return err
+    _invalidate_user_pairing_codes(user_id, now)
     code = secrets.token_hex(3).upper()
-    expires = now + datetime.timedelta(minutes=10)
+    expires = now + datetime.timedelta(minutes=PAIRING_CODE_TTL_MINUTES)
     row = MonitorPairingCode(user_id=user_id, code=code, expires_at=expires)
     db.session.add(row)
     db.session.commit()
@@ -163,7 +188,7 @@ def create_pairing_code(decoded_payload=None):
 @db_retry(max_retries=3)
 def register_device():
     data = request.get_json() or {}
-    pairing_code = (data.get("pairing_code") or "").strip().upper()
+    pairing_code = _normalize_pairing_code(data.get("pairing_code"))
     device_uuid = (data.get("device_uuid") or "").strip()
     if not pairing_code or not device_uuid:
         return jsonify({"status": 0, "msg": "pairing_code and device_uuid required"}), 400
@@ -172,9 +197,33 @@ def register_device():
     if err:
         return err
 
-    pair = MonitorPairingCode.query.filter_by(code=pairing_code, used_at=None).first()
-    if not pair or pair.expires_at < now:
-        return jsonify({"status": 0, "msg": "Invalid or expired pairing code"}), 400
+    pair = (
+        MonitorPairingCode.query.filter_by(code=pairing_code)
+        .order_by(MonitorPairingCode.id.desc())
+        .first()
+    )
+    if not pair:
+        return jsonify(
+            {
+                "status": 0,
+                "msg": "Pairing code not found. In the web app open Activity Monitor, click Generate pairing code, then enter the new code here.",
+            }
+        ), 400
+    if pair.used_at is not None:
+        return jsonify(
+            {
+                "status": 0,
+                "msg": "This pairing code was already used. Generate a new code on Activity Monitor and try again.",
+            }
+        ), 400
+    if _pairing_expired(pair.expires_at, now):
+        return jsonify(
+            {
+                "status": 0,
+                "msg": "Pairing code expired. Generate a new code on Activity Monitor (valid for "
+                f"{PAIRING_CODE_TTL_MINUTES} minutes).",
+            }
+        ), 400
 
     existing = MonitorDevice.query.filter_by(device_uuid=device_uuid).first()
     plain_token = MonitorDevice.generate_token()
@@ -683,6 +732,7 @@ def revoke_my_devices(decoded_payload=None):
     now, err = _require_client_now()
     if err:
         return err
+    _invalidate_user_pairing_codes(user_id, now)
     devices = MonitorDevice.query.filter_by(user_id=user_id, status="active").all()
     removed = 0
     for device in devices:

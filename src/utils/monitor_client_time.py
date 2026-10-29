@@ -1,4 +1,4 @@
-"""Parse timestamps from clients — server must not invent 'now' for monitor writes."""
+"""Parse timestamps from clients — server must not invent 'now' for client-originated writes."""
 
 import datetime
 import re
