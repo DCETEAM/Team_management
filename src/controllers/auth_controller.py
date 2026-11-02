@@ -283,8 +283,8 @@ def token_refresh_controller():
         if refresh_token != user.refresh_token:
             return jsonify({"message": "Invalid refresh token", "status": 0}), 401
 
-        new_access_token = generate_jwt_token(user.id)
-        new_refresh_token = generate_jwt_token(user.id, is_refresh=True)
+        new_access_token = generate_jwt_token(user.id, user.role_id, user.role)
+        new_refresh_token = generate_jwt_token(user.id, user.role_id, user.role, is_refresh=True)
 
         user.refresh_token = new_refresh_token
         user.refresh_token_created_at = datetime.datetime.utcnow() # Fixed typo from token_created_at
