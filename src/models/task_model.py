@@ -23,6 +23,9 @@ class Task(db.Model):
     estimated_hours = db.Column(db.Numeric(6, 2), nullable=True)
     actual_hours = db.Column(db.Numeric(6, 2), nullable=True)
     remark = db.Column(db.Text, nullable=True)
+    review_approved_by_role_id = db.Column(db.Integer, nullable=True)
+    review_approved_by_role = db.Column(db.String(50), nullable=True)
+    review_approved_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     

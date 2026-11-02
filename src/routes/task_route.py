@@ -7,6 +7,7 @@ from src.controllers.task_controller import (
     get_task_by_id,
     update_task,
     delete_task,
+    review_task_decision,
     get_dashboard_tasks,
     get_project_backlog,
 )
@@ -38,6 +39,13 @@ def get_tasks_by_project_route(decoded_payload, project_id):
 @with_db_reconnect
 def get_tasks_by_sprint_route(decoded_payload, sprint_id):
     return get_tasks_by_sprint(sprint_id, decoded_payload)
+
+@task_bp.route("/<int:task_id>/review-decision", methods=["PUT"])
+@token_required
+@with_db_reconnect
+def review_task_decision_route(decoded_payload, task_id):
+    return review_task_decision(task_id, decoded_payload)
+
 
 @task_bp.route("/<int:task_id>", methods=["GET"])
 @token_required

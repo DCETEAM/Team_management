@@ -47,6 +47,14 @@ def can_move_task_to_status(role, target_status):
     return True
 
 
+def can_review_task(role):
+    """Approve / send back tasks on the sprint review column."""
+    r = normalize_role(role)
+    if r == "team_leader":
+        return True
+    return is_admin_role(r)
+
+
 def restriction_message(project, action="This action"):
     if project and project.company_managed:
         return (

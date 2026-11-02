@@ -1,7 +1,7 @@
 import datetime
 from collections import defaultdict
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from src import db
 from src.models.project_allocation_model import ProjectAllocation
@@ -133,7 +133,7 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
                 "start": start.isoformat(),
                 "end": end.isoformat(),
             },
-            "totals": {"total": 0, "completed": 0, "in_progress": 0, "todo": 0, "other": 0, "overdue": 0, "open": 0},
+            "totals": {"total": 0, "completed": 0, "in_progress": 0, "todo": 0, "pending": 0, "hold": 0, "other": 0, "overdue": 0, "open": 0},
             "by_status": [],
         }, None, 200
 
@@ -163,6 +163,8 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
         "completed": 0,
         "in_progress": 0,
         "todo": 0,
+        "pending": 0,
+        "hold": 0,
         "other": 0,
         "overdue": overdue_count,
         "open": 0,
@@ -180,18 +182,29 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
             "is_completed": bool(st.is_completed),
             "is_in_progress": bool(st.is_in_progress),
             "is_todo": bool(st.is_todo),
+            "is_pending": bool(st.is_pending),
+            "is_hold": bool(st.is_hold),
         }
         by_status.append(entry)
         if st.is_completed:
             totals["completed"] += count
         elif st.is_in_progress:
             totals["in_progress"] += count
+        elif st.is_pending:
+            totals["pending"] += count
+        elif st.is_hold:
+            totals["hold"] += count
         elif st.is_todo:
             totals["todo"] += count
         else:
             totals["other"] += count
 
-    totals["open"] = totals["in_progress"] + totals["todo"] + totals["other"]
+    totals["open"] = (
+        totals["in_progress"]
+        + totals["todo"]
+        + totals["pending"]
+        + totals["other"]
+    )
 
     for st_id, count in status_counts.items():
         if not any(s["status_id"] == st_id for s in by_status):
@@ -206,10 +219,17 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
                         "is_completed": bool(st.is_completed),
                         "is_in_progress": bool(st.is_in_progress),
                         "is_todo": bool(st.is_todo),
+                        "is_pending": bool(st.is_pending),
+                        "is_hold": bool(st.is_hold),
                     }
                 )
 
-    totals["open"] = totals["in_progress"] + totals["todo"] + totals["other"]
+    totals["open"] = (
+        totals["in_progress"]
+        + totals["todo"]
+        + totals["pending"]
+        + totals["other"]
+    )
 
     return {
         "filters": {
@@ -257,6 +277,49 @@ def get_deadline_crossed_projects(decoded_payload):
                 "days_overdue": days_overdue,
                 "status": p.status,
                 "open_tasks": open_tasks,
+            }
+        )
+    return result
+
+
+def _project_open_task_count(project_id, completed_status_ids):
+    open_q = Task.query.filter_by(project_id=project_id)
+    if completed_status_ids:
+        open_q = open_q.filter(~Task.status_id.in_(completed_status_ids))
+    return open_q.count()
+
+
+def get_in_progress_projects(decoded_payload):
+    """Active projects still within schedule (end date not passed)."""
+    allowed = accessible_project_ids(decoded_payload)
+    today = datetime.date.today()
+    completed_status_ids = [
+        s.id for s in TaskStatus.query.filter_by(is_completed=True).all()
+    ]
+
+    q = Project.query.filter(
+        ~Project.status.in_(["completed", "cancelled"]),
+        Project.status == "active",
+        or_(Project.end_date.is_(None), Project.end_date >= today),
+    )
+    if allowed is not None:
+        if not allowed:
+            return []
+        q = q.filter(Project.id.in_(allowed))
+
+    # MySQL has no NULLS LAST; null end dates sort after dated projects.
+    projects = q.order_by(Project.end_date.is_(None), Project.end_date.asc()).all()
+    result = []
+    for p in projects:
+        days_remaining = (p.end_date - today).days if p.end_date else None
+        result.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "end_date": p.end_date.isoformat() if p.end_date else None,
+                "days_remaining": days_remaining,
+                "status": p.status,
+                "open_tasks": _project_open_task_count(p.id, completed_status_ids),
             }
         )
     return result

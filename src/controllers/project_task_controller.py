@@ -8,6 +8,27 @@ from src.models.worker_model import Worker
 from src.utils.role_utils import get_person_details
 from src.utils.date_utils import safe_isoformat
 
+
+def _serialize_task_review_fields(task):
+    person = None
+    if getattr(task, "review_approved_by_role", None) and getattr(
+        task, "review_approved_by_role_id", None
+    ):
+        person = get_person_details(
+            task.review_approved_by_role, task.review_approved_by_role_id
+        )
+        if person:
+            person = {**person, "user_id": task.review_approved_by_role_id}
+    return {
+        "review_approved_by_role_id": getattr(task, "review_approved_by_role_id", None),
+        "review_approved_by_role": getattr(task, "review_approved_by_role", None),
+        "review_approved_at": safe_isoformat(task.review_approved_at)
+        if getattr(task, "review_approved_at", None)
+        else None,
+        "review_approved_person": person,
+    }
+
+
 def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
     try:
         print("=== Starting get_project_task_data ===")
@@ -138,7 +159,8 @@ def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
                 "estimated_hours": float(task.estimated_hours) if task.estimated_hours else None,
                 "actual_hours": float(task.actual_hours) if task.actual_hours else None,
                 "remark": task.remark,
-                "created_at": safe_isoformat(task.created_at)
+                "created_at": safe_isoformat(task.created_at),
+                **_serialize_task_review_fields(task),
             }
             
             if task_members:
@@ -236,6 +258,9 @@ def get_project_task_data(project_id, sprint_id=None, decoded_payload=None):
                 "is_backlog": status.is_backlog,
                 "is_todo": status.is_todo,
                 "is_in_progress": status.is_in_progress,
+                "is_pending": status.is_pending,
+                "is_hold": status.is_hold,
+                "is_review": status.is_review,
                 "is_completed": status.is_completed,
                 "tasks": status_tasks
             })

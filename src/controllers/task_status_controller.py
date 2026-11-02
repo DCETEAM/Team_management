@@ -13,6 +13,9 @@ def create_task_status(decoded_payload=None):
         is_backlog = data.get("is_backlog", False)
         is_todo = data.get("is_todo", False)
         is_in_progress = data.get("is_in_progress", False)
+        is_pending = data.get("is_pending", False)
+        is_hold = data.get("is_hold", False)
+        is_review = data.get("is_review", False)
         is_completed = data.get("is_completed", False)
 
         if not name:
@@ -34,6 +37,9 @@ def create_task_status(decoded_payload=None):
             is_backlog=is_backlog,
             is_todo=is_todo,
             is_in_progress=is_in_progress,
+            is_pending=is_pending,
+            is_hold=is_hold,
+            is_review=is_review,
             is_completed=is_completed
         )
         db.session.add(new_status)
@@ -62,6 +68,9 @@ def get_all_task_statuses(decoded_payload=None):
                 "is_backlog": status.is_backlog,
                 "is_todo": status.is_todo,
                 "is_in_progress": status.is_in_progress,
+                "is_pending": status.is_pending,
+                "is_hold": status.is_hold,
+                "is_review": status.is_review,
                 "is_completed": status.is_completed,
                 "created_at": status.created_at
             })
@@ -85,6 +94,9 @@ def get_task_status_by_id(status_id, decoded_payload=None):
             "is_backlog": status.is_backlog,
             "is_todo": status.is_todo,
             "is_in_progress": status.is_in_progress,
+            "is_pending": status.is_pending,
+            "is_hold": status.is_hold,
+            "is_review": status.is_review,
             "is_completed": status.is_completed,
             "created_at": status.created_at
         }
@@ -120,6 +132,12 @@ def update_task_status(status_id, decoded_payload=None):
             status.is_todo = data["is_todo"]
         if "is_in_progress" in data:
             status.is_in_progress = data["is_in_progress"]
+        if "is_pending" in data:
+            status.is_pending = data["is_pending"]
+        if "is_hold" in data:
+            status.is_hold = data["is_hold"]
+        if "is_review" in data:
+            status.is_review = data["is_review"]
         if "is_completed" in data:
             status.is_completed = data["is_completed"]
             

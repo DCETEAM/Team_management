@@ -2,6 +2,7 @@ from flask import Blueprint
 
 from src.controllers.dashboard_controller import (
     get_deadline_crossed_projects,
+    get_in_progress_projects,
     get_in_progress_today,
     get_project_health,
     get_project_summary,
@@ -27,6 +28,13 @@ def project_summary_route(decoded_payload):
 @with_db_reconnect
 def deadline_crossed_route(decoded_payload):
     return get_deadline_crossed_projects(decoded_payload)
+
+
+@dashboard_bp.route("/in-progress-projects", methods=["GET"])
+@token_required
+@with_db_reconnect
+def in_progress_projects_route(decoded_payload):
+    return get_in_progress_projects(decoded_payload)
 
 
 @dashboard_bp.route("/task-completions", methods=["GET"])

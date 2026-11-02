@@ -28,6 +28,14 @@ def get_deadline_crossed_projects(decoded_payload=None):
         return jsonify({"status": 0, "error": str(e)}), 500
 
 
+def get_in_progress_projects(decoded_payload=None):
+    try:
+        projects = dashboard_service.get_in_progress_projects(decoded_payload)
+        return jsonify({"status": 1, "projects": projects}), 200
+    except Exception as e:
+        return jsonify({"status": 0, "error": str(e)}), 500
+
+
 def get_task_completions(decoded_payload=None):
     try:
         year = request.args.get("year")

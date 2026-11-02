@@ -12,9 +12,61 @@ from src.utils.project_permissions import (
     can_modify_project_tasks,
     can_move_task_to_status,
     can_manage_project_sprints,
+    can_review_task,
     restriction_message,
 )
 from src.controllers.task_status_history_controller import record_task_status_change
+
+
+def _serialize_task_status_flags(status):
+    if not status:
+        return {
+            "status_is_completed": False,
+            "status_is_in_progress": False,
+            "status_is_todo": False,
+            "status_is_backlog": False,
+            "status_is_pending": False,
+            "status_is_hold": False,
+            "status_is_review": False,
+        }
+    return {
+        "status_is_completed": bool(status.is_completed),
+        "status_is_in_progress": bool(status.is_in_progress),
+        "status_is_todo": bool(status.is_todo),
+        "status_is_backlog": bool(status.is_backlog),
+        "status_is_pending": bool(status.is_pending),
+        "status_is_hold": bool(status.is_hold),
+        "status_is_review": bool(status.is_review),
+    }
+
+
+def _serialize_task_review_approval(task):
+    person = None
+    if getattr(task, "review_approved_by_role", None) and getattr(
+        task, "review_approved_by_role_id", None
+    ):
+        person = get_person_details(
+            task.review_approved_by_role, task.review_approved_by_role_id
+        )
+    return {
+        "review_approved_by_role_id": getattr(task, "review_approved_by_role_id", None),
+        "review_approved_by_role": getattr(task, "review_approved_by_role", None),
+        "review_approved_at": safe_isoformat(task.review_approved_at)
+        if getattr(task, "review_approved_at", None)
+        else None,
+        "review_approved_person": person,
+    }
+
+
+def _subtasks_all_completed(task):
+    if not task.sub_tasks or len(task.sub_tasks) == 0:
+        return True
+    for sub_task in task.sub_tasks:
+        sub_task_status = TaskStatus.query.get(sub_task.status_id)
+        if not sub_task_status or not sub_task_status.is_completed:
+            return False
+    return True
+
 
 def create_task(decoded_payload=None):
     try:
@@ -486,16 +538,50 @@ def update_task(task_id, decoded_payload=None):
                 ), 403
 
             if new_status and new_status.is_completed:
-                # Check if all subtasks are completed
-                if task.sub_tasks and len(task.sub_tasks) > 0:
-                    all_subtasks_completed = True
-                    for sub_task in task.sub_tasks:
-                        sub_task_status = TaskStatus.query.get(sub_task.status_id)
-                        if not sub_task_status or not sub_task_status.is_completed:
-                            all_subtasks_completed = False
-                            break
-                    if not all_subtasks_completed:
-                        return jsonify({"message": "Cannot mark task as completed until all subtasks are completed", "status": 0}), 400
+                if not _subtasks_all_completed(task):
+                    return jsonify(
+                        {
+                            "message": "Cannot mark task as completed until all subtasks are completed",
+                            "status": 0,
+                        }
+                    ), 400
+
+            if (
+                old_status
+                and getattr(old_status, "is_review", False)
+                and new_status
+                and new_status.id != old_status_id
+            ):
+                if new_status.is_completed:
+                    role_id = decoded_payload.get("role_id") if decoded_payload else None
+                    if role_id is None and decoded_payload:
+                        role_id = decoded_payload.get("roleId")
+                    task.review_approved_by_role_id = role_id
+                    task.review_approved_by_role = actor_role
+                    task.review_approved_at = datetime.datetime.utcnow()
+                else:
+                    task.review_approved_by_role_id = None
+                    task.review_approved_by_role = None
+                    task.review_approved_at = None
+            elif (
+                new_status
+                and new_status.is_completed
+                and old_status
+                and not getattr(old_status, "is_review", False)
+            ):
+                task.review_approved_by_role_id = None
+                task.review_approved_by_role = None
+                task.review_approved_at = None
+
+            if (
+                old_status
+                and old_status.is_completed
+                and new_status
+                and not new_status.is_completed
+            ):
+                task.review_approved_by_role_id = None
+                task.review_approved_by_role = None
+                task.review_approved_at = None
         
         if "project_id" in data:
             task.project_id = data["project_id"]
@@ -544,6 +630,75 @@ def update_task(task_id, decoded_payload=None):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": 0, "error": str(e)}), 500
+
+
+def review_task_decision(task_id, decoded_payload=None):
+    """Move a task from review → completed (approve) or review → in progress."""
+    try:
+        task = Task.query.get(task_id)
+        if not task:
+            return jsonify({"message": "Task not found", "status": 0}), 404
+
+        actor_role = decoded_payload.get("role") if decoded_payload else None
+        if not can_review_task(actor_role):
+            return jsonify(
+                {
+                    "msg": "Only team leaders and administrators can review tasks.",
+                    "status": 0,
+                    "restricted": True,
+                }
+            ), 403
+
+        data = request.get_json() or {}
+        action = (data.get("action") or "").strip().lower()
+        if action not in ("approve", "in_progress"):
+            return jsonify({"message": "action must be approve or in_progress", "status": 0}), 400
+
+        old_status = TaskStatus.query.get(task.status_id)
+        if not old_status or not getattr(old_status, "is_review", False):
+            return jsonify({"message": "Task is not in a review status", "status": 0}), 400
+
+        if action == "approve":
+            new_status = TaskStatus.query.filter_by(is_completed=True).first()
+            if not new_status:
+                return jsonify({"message": "No completed status configured", "status": 0}), 400
+            if not _subtasks_all_completed(task):
+                return jsonify(
+                    {
+                        "message": "Cannot approve until all subtasks are completed",
+                        "status": 0,
+                    }
+                ), 400
+            role_id = decoded_payload.get("role_id")
+            if role_id is None:
+                role_id = decoded_payload.get("roleId")
+            task.review_approved_by_role_id = role_id
+            task.review_approved_by_role = decoded_payload.get("role")
+            task.review_approved_at = datetime.datetime.utcnow()
+        else:
+            new_status = TaskStatus.query.filter_by(is_in_progress=True).first()
+            if not new_status:
+                return jsonify({"message": "No in-progress status configured", "status": 0}), 400
+            task.review_approved_by_role_id = None
+            task.review_approved_by_role = None
+            task.review_approved_at = None
+
+        old_status_id = task.status_id
+        task.status_id = new_status.id
+        record_task_status_change(
+            task,
+            old_status_id,
+            new_status.id,
+            old_status,
+            new_status,
+            decoded_payload,
+        )
+        db.session.commit()
+        return jsonify({"message": "Task updated successfully", "status": 1}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": 0, "error": str(e)}), 500
+
 
 def delete_task(task_id, decoded_payload=None):
     try:
@@ -705,6 +860,7 @@ def get_dashboard_tasks(decoded_payload=None):
                         "status_id": task.status_id,
                         "status_name": task.status.name if task.status else None,
                         "status_color": task.status.color if task.status else None,
+                        **_serialize_task_status_flags(task.status),
                         "title": task.title,
                         "description": task.description,
                         "goal": task.goal,
@@ -841,6 +997,7 @@ def get_dashboard_tasks(decoded_payload=None):
                         "status_id": task.status_id,
                         "status_name": task.status.name if task.status else None,
                         "status_color": task.status.color if task.status else None,
+                        **_serialize_task_status_flags(task.status),
                         "title": task.title,
                         "description": task.description,
                         "goal": task.goal,
