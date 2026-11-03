@@ -4,13 +4,18 @@ from collections import defaultdict
 from sqlalchemy import func, or_
 
 from src import db
-from src.models.project_allocation_model import ProjectAllocation
 from src.models.project_model import Project
 from src.models.task_model import Task
 from src.models.task_status_history_model import TaskStatusHistory
 from src.models.task_status_model import TaskStatus
 from src.utils.date_utils import parse_date
 from src.utils.role_utils import get_person_details
+from src.utils.allocation_utils import (
+    accessible_project_ids,
+    iter_task_assignees,
+    filter_tasks_for_user,
+    task_assigned_to_user,
+)
 
 
 def _payload_role(decoded_payload):
@@ -32,25 +37,6 @@ def _payload_role(decoded_payload):
     if role:
         role = str(role).lower().strip()
     return role, role_id
-
-
-def accessible_project_ids(decoded_payload):
-    """None = all projects; empty list = none."""
-    if not decoded_payload:
-        return []
-    role, role_id = _payload_role(decoded_payload)
-    if role in ("superadmin", "admin", "scrum"):
-        return None
-    if role in ("team_leader", "worker") and role_id:
-        ids = []
-        for alloc in ProjectAllocation.query.all():
-            members = alloc.members or []
-            for member in members:
-                if member.get("user_id") == role_id:
-                    ids.append(alloc.project_id)
-                    break
-        return list(dict.fromkeys(ids))
-    return []
 
 
 def _allowed_project_id(decoded_payload, project_id_param):
@@ -142,6 +128,8 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
         func.date(Task.updated_at) <= end,
     )
     tasks = q.all()
+    role, role_id = _payload_role(decoded_payload)
+    tasks = filter_tasks_for_user(tasks, role, role_id)
     today = datetime.date.today()
 
     status_counts = defaultdict(int)
@@ -367,16 +355,23 @@ def get_task_completions(decoded_payload, year_param, project_id_param):
         q = q.filter(TaskStatusHistory.project_id.in_(project_filter))
 
     counts = defaultdict(int)
+    role, role_id = _payload_role(decoded_payload)
     for entry in q.all():
         d = _history_event_date(entry)
         if not d or d.year != year:
             continue
+        if role == "worker" and role_id:
+            task = entry.task or Task.query.get(entry.task_id)
+            if task and not task_assigned_to_user(task, role, role_id):
+                continue
         counts[d.isoformat()] += 1
 
     return {"year": year, "counts_by_date": dict(counts)}, None, 200
 
 
 def _member_key(member):
+    if not isinstance(member, dict):
+        return f"unknown:{member}"
     uid = member.get("user_id") or member.get("role_id")
     role = member.get("role") or member.get("type") or ""
     return f"{role}:{uid}"
@@ -403,10 +398,12 @@ def get_in_progress_today(decoded_payload, project_id_param):
         q = q.filter(Task.project_id.in_(project_filter))
 
     tasks = q.all()
+    role, role_id = _payload_role(decoded_payload)
+    tasks = filter_tasks_for_user(tasks, role, role_id)
     by_person = {}
 
     for task in tasks:
-        members = task.worker_ids if task.worker_ids else task.members or []
+        members = list(iter_task_assignees(task))
         if not members:
             continue
         for member in members:
@@ -503,11 +500,13 @@ def get_team_activity(decoded_payload, project_id_param, range_key, start_str, e
         func.date(Task.updated_at) <= end,
     )
     tasks = q.all()
+    role, role_id = _payload_role(decoded_payload)
+    tasks = filter_tasks_for_user(tasks, role, role_id)
     today = datetime.date.today()
     by_member = {}
 
     for task in tasks:
-        members = task.worker_ids if task.worker_ids else task.members or []
+        members = list(iter_task_assignees(task))
         is_completed = bool(task.status and task.status.is_completed)
         is_overdue = bool(
             task.due_date and task.due_date < today and not is_completed
@@ -574,16 +573,18 @@ def get_upcoming_deadlines(decoded_payload, project_id_param, limit=10):
     except (TypeError, ValueError):
         limit = 10
 
-    tasks = q.order_by(Task.due_date.asc()).limit(limit).all()
+    role, role_id = _payload_role(decoded_payload)
+    tasks = q.order_by(Task.due_date.asc()).limit(max(limit * 10, 50)).all()
+    tasks = filter_tasks_for_user(tasks, role, role_id)[:limit]
     result = []
     for task in tasks:
         owner = None
-        members = task.worker_ids if task.worker_ids else task.members or []
-        if members:
-            m = members[0]
-            role = m.get("role") or m.get("type")
-            role_id = m.get("role_id") or m.get("user_id")
-            details = get_person_details(role, role_id) if role and role_id else None
+        assignees = list(iter_task_assignees(task))
+        if assignees:
+            m = assignees[0]
+            role_name = m.get("role") or m.get("type")
+            rid = m.get("role_id") or m.get("user_id")
+            details = get_person_details(role_name, rid) if role_name and rid else None
             if details:
                 owner = {
                     "first_name": details.get("first_name"),

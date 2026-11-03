@@ -102,12 +102,15 @@ def get_all_projects(decoded_payload=None):
         
         # Filter projects for team_leader or worker based on allocation
         if role in ["team_leader", "worker"] and role_id:
+            from src.utils.allocation_utils import match_allocation_member
+            from src.models.project_allocation_model import ProjectAllocation
+
             filtered_project_ids = []
             allocations = ProjectAllocation.query.all()
             for alloc in allocations:
                 members = alloc.members or []
                 for member in members:
-                    if member.get("user_id") == role_id:
+                    if match_allocation_member(member, role, role_id):
                         filtered_project_ids.append(alloc.project_id)
                         break
             
