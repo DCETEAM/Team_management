@@ -86,6 +86,49 @@ def resolve_date_range(range_key, start_str=None, end_str=None):
     return today, today, None
 
 
+def _task_calendar_date(value):
+    if value is None:
+        return None
+    if isinstance(value, datetime.date) and not isinstance(value, datetime.datetime):
+        return value
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    parsed = parse_date(value)
+    if parsed is None:
+        return None
+    if isinstance(parsed, datetime.datetime):
+        return parsed.date()
+    return parsed
+
+
+def task_schedule_overlaps_range(task, range_start, range_end):
+    """True if task start_date → due_date overlaps [range_start, range_end] (inclusive)."""
+    start = _task_calendar_date(task.start_date)
+    end = _task_calendar_date(task.due_date)
+    if start and end and start > end:
+        start, end = end, start
+    if start and not end:
+        end = start
+    if end and not start:
+        start = end
+    if not start:
+        updated = _task_calendar_date(getattr(task, "updated_at", None))
+        if updated is None:
+            return False
+        return range_start <= updated <= range_end
+    return start <= range_end and end >= range_start
+
+
+def _tasks_in_schedule_range(project_filter, range_start, range_end, decoded_payload):
+    q = _task_query_for_projects(project_filter)
+    if q is None:
+        return []
+    tasks = q.all()
+    tasks = [t for t in tasks if task_schedule_overlaps_range(t, range_start, range_end)]
+    role, role_id = _payload_role(decoded_payload)
+    return filter_tasks_for_user(tasks, role, role_id)
+
+
 def _task_query_for_projects(project_filter):
     q = Task.query.join(TaskStatus, Task.status_id == TaskStatus.id)
     if project_filter is not None:
@@ -110,8 +153,7 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
     if err:
         return None, err, 400
 
-    q = _task_query_for_projects(project_filter)
-    if q is None:
+    if project_filter is not None and isinstance(project_filter, list) and not project_filter:
         return {
             "filters": {
                 "project_id": project_id_param,
@@ -123,13 +165,7 @@ def get_project_summary(decoded_payload, project_id_param, range_key, start_str,
             "by_status": [],
         }, None, 200
 
-    q = q.filter(
-        func.date(Task.updated_at) >= start,
-        func.date(Task.updated_at) <= end,
-    )
-    tasks = q.all()
-    role, role_id = _payload_role(decoded_payload)
-    tasks = filter_tasks_for_user(tasks, role, role_id)
+    tasks = _tasks_in_schedule_range(project_filter, start, end, decoded_payload)
     today = datetime.date.today()
 
     status_counts = defaultdict(int)
@@ -495,13 +531,7 @@ def get_team_activity(decoded_payload, project_id_param, range_key, start_str, e
     if q is None:
         return {"members": []}, None, 200
 
-    q = q.filter(
-        func.date(Task.updated_at) >= start,
-        func.date(Task.updated_at) <= end,
-    )
-    tasks = q.all()
-    role, role_id = _payload_role(decoded_payload)
-    tasks = filter_tasks_for_user(tasks, role, role_id)
+    tasks = _tasks_in_schedule_range(project_filter, start, end, decoded_payload)
     today = datetime.date.today()
     by_member = {}
 
