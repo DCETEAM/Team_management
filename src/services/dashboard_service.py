@@ -599,13 +599,21 @@ def get_upcoming_deadlines(decoded_payload, project_id_param, limit=10):
         q = q.filter(Task.project_id.in_(project_filter))
 
     try:
-        limit = min(int(limit), 50)
+        raw_limit = str(limit).strip().lower()
+        if raw_limit in ("all", "0", "-1", "none"):
+            int_limit = 500
+        else:
+            int_limit = min(int(limit), 500)
     except (TypeError, ValueError):
-        limit = 10
+        int_limit = 10
 
     role, role_id = _payload_role(decoded_payload)
-    tasks = q.order_by(Task.due_date.asc()).limit(max(limit * 10, 50)).all()
-    tasks = filter_tasks_for_user(tasks, role, role_id)[:limit]
+    if int_limit >= 500:
+        tasks = q.order_by(Task.due_date.asc()).all()
+        tasks = filter_tasks_for_user(tasks, role, role_id)
+    else:
+        tasks = q.order_by(Task.due_date.asc()).limit(max(int_limit * 10, 50)).all()
+        tasks = filter_tasks_for_user(tasks, role, role_id)[:int_limit]
     result = []
     for task in tasks:
         owner = None

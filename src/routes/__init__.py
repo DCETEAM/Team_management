@@ -25,6 +25,12 @@ from src.routes.profile_route import profile_bp
 from src.routes.monitor_route import monitor_bp
 from src.routes.dashboard_route import dashboard_bp
 
+from src import db
+from task_chat import create_task_chat_blueprint
+
+# Task-chat blueprint needs the shared db instance; create it after models load
+task_chat_bp = create_task_chat_blueprint(db)
+
 ALL_BLUEPRINTS = (
     auth_bp,
     admin_bp,
@@ -52,6 +58,7 @@ ALL_BLUEPRINTS = (
     profile_bp,
     monitor_bp,
     dashboard_bp,
+    task_chat_bp,
 )
 
 
