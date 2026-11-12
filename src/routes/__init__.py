@@ -24,6 +24,8 @@ from src.routes.attendance_setting_route import attendance_setting_bp
 from src.routes.profile_route import profile_bp
 from src.routes.monitor_route import monitor_bp
 from src.routes.dashboard_route import dashboard_bp
+from src.routes.learn_stack_route import learn_stack_bp
+from src.routes.project_credential_route import project_credential_bp
 
 ALL_BLUEPRINTS = (
     auth_bp,
@@ -52,6 +54,8 @@ ALL_BLUEPRINTS = (
     profile_bp,
     monitor_bp,
     dashboard_bp,
+    learn_stack_bp,
+    project_credential_bp,
 )
 
 
