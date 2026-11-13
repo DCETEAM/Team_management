@@ -148,6 +148,36 @@ def send_enrollment_email(
 
 
 
+def send_html_email(to_emails, subject, html_body, cc_emails=None, reply_to=None):
+    """Send HTML email to one or more recipients (optional CC)."""
+    to_list = [e.strip() for e in (to_emails if isinstance(to_emails, (list, tuple)) else [to_emails]) if e and str(e).strip()]
+    if not to_list:
+        return {"error": "No recipient email address"}
+
+    cc_list = [e.strip() for e in (cc_emails or []) if e and str(e).strip()]
+    cc_list = [e for e in cc_list if e.lower() not in {t.lower() for t in to_list}]
+
+    try:
+        msg = MIMEMultipart("alternative")
+        msg["From"] = f"{SMTP_CONFIG['sender_name']} <{SMTP_CONFIG['from_email']}>"
+        msg["To"] = ", ".join(to_list)
+        if cc_list:
+            msg["Cc"] = ", ".join(cc_list)
+        msg["Subject"] = subject
+        if reply_to:
+            msg["Reply-To"] = reply_to
+        msg.attach(MIMEText(html_body, "html"))
+
+        recipients = to_list + cc_list
+        with smtplib.SMTP_SSL(SMTP_CONFIG["host"], SMTP_CONFIG["port"]) as server:
+            server.login(SMTP_CONFIG["username"], SMTP_CONFIG["password"])
+            server.sendmail(SMTP_CONFIG["from_email"], recipients, msg.as_string())
+        return {"success": True, "message": "Email sent successfully"}
+    except Exception as e:
+        print("EMAIL ERROR:", e)
+        return {"error": str(e)}
+
+
 def send_otp_email(to_email, otp_code):
     if not to_email:
         return {"error": "Email address not provided"}

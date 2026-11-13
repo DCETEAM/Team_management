@@ -96,6 +96,12 @@ def create_app():
 
     with app.app_context():
         db.create_all()
+        try:
+            from src.utils.leave_schema_patch import ensure_leave_request_mail_columns
+
+            ensure_leave_request_mail_columns(db)
+        except Exception as e:
+            logging.warning("Leave schema patch failed: %s", e)
 
     @app.teardown_request
     def _teardown_db_session(exc):

@@ -21,6 +21,8 @@ class LeaveRequest(db.Model):
     reviewed_at = db.Column(db.DateTime, nullable=True)
     review_comment = db.Column(db.Text, nullable=True)
     remark = db.Column(db.Text, nullable=True)
+    notify_to_admin_id = db.Column(db.Integer, nullable=True)
+    notify_cc_admin_ids = db.Column(db.Text, nullable=True)  # JSON array of admin ids
     created_at = db.Column(db.DateTime, default=datetime.datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
     

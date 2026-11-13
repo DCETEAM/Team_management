@@ -1,5 +1,6 @@
 from flask import jsonify, request
 import datetime
+import json
 from src import db
 from src.models.leave_request_model import LeaveRequest, LeaveRequestAudit
 from src.utils.role_utils import get_person_details
@@ -7,6 +8,15 @@ from werkzeug.utils import secure_filename
 import os
 from src.utils.date_utils import safe_isoformat
 from config import Config
+from src.services.leave_mail_service import (
+    list_leave_mail_admins,
+    send_leave_submission_email,
+    send_leave_decision_email,
+    admin_by_id,
+    resolve_compose_mail,
+    save_user_mail_template,
+    _admin_recipient_row,
+)
 
 
 def create_audit_log(leave_id, action, old_status, new_status, role_id, role, comment=None):
@@ -37,12 +47,26 @@ def create_leave_request(decoded_payload):
         end_time_str = data.get("end_time")
         attachment_path = data.get("attachment_path")
         remark = data.get("remark")
+        mail_to_admin_id = data.get("mail_to_admin_id")
+        mail_cc_admin_ids = data.get("mail_cc_admin_ids") or []
+        send_notification_email = data.get("send_notification_email", True)
+        mail_subject = (data.get("mail_subject") or "").strip()
+        mail_body = (data.get("mail_body") or "").strip()
 
         if not all([leave_type, reason, start_date_str, end_date_str]):
             return jsonify({"msg": "Type, Reason, Start Date, and End Date are required", "status": 0}), 400
 
         if leave_type == "leave" and not leave_subtype:
             return jsonify({"msg": "Leave subtype is required (full_day or half_day)", "status": 0}), 400
+
+        if role != "superadmin" and send_notification_email:
+            if not mail_to_admin_id:
+                return jsonify({"msg": "Please select an admin to send the leave request email to", "status": 0}), 400
+            if not mail_subject or not mail_body:
+                return jsonify({"msg": "Email subject and body are required", "status": 0}), 400
+            approver = admin_by_id(mail_to_admin_id)
+            if not approver or not approver.email:
+                return jsonify({"msg": "Selected admin does not have a valid email", "status": 0}), 400
 
         try:
             start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -80,7 +104,9 @@ def create_leave_request(decoded_payload):
             end_time=end_time,
             attachment_path=attachment_path,
             remark=remark,
-            status=initial_status
+            status=initial_status,
+            notify_to_admin_id=mail_to_admin_id if mail_to_admin_id else None,
+            notify_cc_admin_ids=json.dumps(mail_cc_admin_ids) if mail_cc_admin_ids else None,
         )
         db.session.add(new_leave)
         db.session.flush()
@@ -96,12 +122,43 @@ def create_leave_request(decoded_payload):
         )
 
         db.session.commit()
-        
+
+        mail_warning = None
+        if send_notification_email and role != "superadmin" and mail_to_admin_id:
+            requester = get_person_details(role, role_id)
+            leave_payload = {
+                "type": leave_type,
+                "leave_subtype": leave_subtype,
+                "reason": reason,
+                "start_date": start_date_str,
+                "end_date": end_date_str,
+                "start_time": start_time_str,
+                "end_time": end_time_str,
+                "remark": remark,
+            }
+            mail_result = send_leave_submission_email(
+                requester,
+                leave_payload,
+                mail_to_admin_id,
+                mail_cc_admin_ids,
+                mail_subject=mail_subject or None,
+                mail_body=mail_body or None,
+            )
+            if mail_result.get("error"):
+                mail_warning = mail_result["error"]
+            elif mail_subject and mail_body:
+                try:
+                    save_user_mail_template(role_id, role, mail_subject, mail_body)
+                except Exception as store_err:
+                    print("leave mail template save failed:", store_err)
+
         response_msg = "Leave request submitted successfully"
         if converted_to_leave:
             response_msg = "Request duration exceeded 1 hour, converted to Half-Day Leave and submitted successfully"
+        if mail_warning:
+            response_msg += f" (Email could not be sent: {mail_warning})"
 
-        return jsonify({"msg": response_msg, "status": 1, "leave_id": new_leave.id}), 201
+        return jsonify({"msg": response_msg, "status": 1, "leave_id": new_leave.id, "mail_warning": mail_warning}), 201
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": 0, "error": str(e)}), 500
@@ -151,6 +208,7 @@ def get_all_leave_requests(decoded_payload):
                 "reviewed_at": safe_isoformat(leave.reviewed_at),
                 "review_comment": leave.review_comment,
                 "remark": leave.remark,
+                "notify_to_admin": _notify_admin_summary(leave),
                 "created_at": safe_isoformat(leave.created_at)
             })
         return jsonify({"leaves": result, "status": 1}), 200
@@ -181,8 +239,12 @@ def get_my_leave_requests(decoded_payload):
                 "end_time": leave.end_time.strftime('%H:%M') if leave.end_time else None,
                 "attachment_path": leave.attachment_path,
                 "status": leave.status,
+                "reviewed_by_role_id": leave.reviewed_by_role_id,
+                "reviewed_by_role": leave.reviewed_by_role,
                 "reviewed_by_person": reviewed_by_person,
+                "reviewed_at": safe_isoformat(leave.reviewed_at),
                 "review_comment": leave.review_comment,
+                "notify_to_admin": _notify_admin_summary(leave),
                 "created_at": safe_isoformat(leave.created_at)
             })
         return jsonify({"leaves": result, "status": 1}), 200
@@ -252,6 +314,7 @@ def get_leave_request_by_id(leave_id, decoded_payload):
             "reviewed_at": safe_isoformat(leave.reviewed_at),
             "review_comment": leave.review_comment,
             "remark": leave.remark,
+            "notify_to_admin": _notify_admin_summary(leave),
             "created_at": safe_isoformat(leave.created_at),
             "audit_logs": audit_logs
         }
@@ -310,7 +373,19 @@ def review_leave_request(leave_id, decoded_payload):
         )
         
         db.session.commit()
-        return jsonify({"msg": f"Leave request {status} successfully", "status": 1}), 200
+
+        mail_warning = None
+        if status in ("approved", "rejected"):
+            mail_result = send_leave_decision_email(
+                leave, status, review_comment, user_role, user_role_id
+            )
+            if mail_result.get("error"):
+                mail_warning = mail_result["error"]
+
+        msg = f"Leave request {status} successfully"
+        if mail_warning:
+            msg += f" (Notification email could not be sent: {mail_warning})"
+        return jsonify({"msg": msg, "status": 1, "mail_warning": mail_warning}), 200
     except Exception as e:
         import traceback
         print(f"Error reviewing leave request: {str(e)}")
@@ -384,6 +459,53 @@ def delete_leave_request(leave_id, decoded_payload):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": 0, "error": str(e)}), 500
+
+
+def get_leave_mail_recipients(decoded_payload):
+    try:
+        admins = list_leave_mail_admins()
+        return jsonify({"admins": admins, "status": 1}), 200
+    except Exception as e:
+        return jsonify({"status": 0, "error": str(e)}), 500
+
+
+def compose_leave_mail(decoded_payload):
+    """Default or saved plain-text template for the mail compose popup."""
+    try:
+        data = request.get_json() or {}
+        role_id = decoded_payload.get("role_id")
+        role = decoded_payload.get("role")
+        requester = get_person_details(role, role_id)
+        if not requester:
+            return jsonify({"msg": "Could not load your profile", "status": 0}), 400
+
+        leave_payload = {
+            "type": data.get("type"),
+            "leave_subtype": data.get("leave_subtype"),
+            "reason": data.get("reason"),
+            "start_date": data.get("start_date"),
+            "end_date": data.get("end_date"),
+            "start_time": data.get("start_time"),
+            "end_time": data.get("end_time"),
+            "remark": data.get("remark"),
+        }
+        to_admin_id = data.get("mail_to_admin_id")
+        compose = resolve_compose_mail(
+            requester, leave_payload, to_admin_id, role_id, role
+        )
+        admins = list_leave_mail_admins()
+        return jsonify({"status": 1, "admins": admins, "requester": requester, **compose}), 200
+    except Exception as e:
+        return jsonify({"status": 0, "error": str(e)}), 500
+
+
+def _notify_admin_summary(leave):
+    if not leave.notify_to_admin_id:
+        return None
+    admin = admin_by_id(leave.notify_to_admin_id)
+    if not admin:
+        return None
+    return _admin_recipient_row(admin)
 
 
 def upload_attachment(decoded_payload):

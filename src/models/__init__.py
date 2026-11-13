@@ -15,6 +15,7 @@ from src.models.task_attachment_model import TaskAttachment
 from src.models.meeting_model import Meeting
 from src.models.meeting_message_model import MeetingMessage
 from src.models.leave_request_model import LeaveRequest
+from src.models.leave_mail_user_template_model import LeaveMailUserTemplate
 from src.models.activity_log_model import ActivityLog
 from src.models.attendance_status_model import AttendanceStatus
 from src.models.attendance_setting_model import AttendanceSetting

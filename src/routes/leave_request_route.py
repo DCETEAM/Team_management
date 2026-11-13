@@ -7,7 +7,9 @@ from src.controllers.leave_request_controller import (
     review_leave_request,
     cancel_leave_request,
     delete_leave_request,
-    upload_attachment
+    upload_attachment,
+    get_leave_mail_recipients,
+    compose_leave_mail,
 )
 from src.utils.jwt import token_required
 from src.utils.db_retry import with_db_reconnect
@@ -61,3 +63,17 @@ def delete_leave_request_route(decoded_payload, leave_id):
 @with_db_reconnect
 def upload_attachment_route(decoded_payload):
     return upload_attachment(decoded_payload)
+
+
+@leave_request_bp.route("/mail-recipients", methods=["GET"])
+@token_required
+@with_db_reconnect
+def get_leave_mail_recipients_route(decoded_payload):
+    return get_leave_mail_recipients(decoded_payload)
+
+
+@leave_request_bp.route("/compose-mail", methods=["POST"])
+@token_required
+@with_db_reconnect
+def compose_leave_mail_route(decoded_payload):
+    return compose_leave_mail(decoded_payload)
